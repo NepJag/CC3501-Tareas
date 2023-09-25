@@ -341,7 +341,7 @@ if __name__ == "__main__":
     cube = Model(shapes.Cube["position"],index_data=shapes.Cube["indices"])
     cube.init_gpu_data(mesh_pipeline)
 
-    sphere = Mesh("assets/sphere.off")
+    sphere = Mesh(r"CC3501-Tareas\assets\sphere.off")
     sphere.init_gpu_data(mesh_pipeline)
 
     graph = SceneGraph(camera)

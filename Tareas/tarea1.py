@@ -2,13 +2,14 @@ import pyglet
 from OpenGL import GL
 import numpy as np
 import trimesh as tm
+import networkx as nx
 import os
 import sys
 from pathlib import Path
 
 sys.path.append(os.path.dirname(os.path.dirname((os.path.abspath(__file__)))))
-import CC3501.grafica.transformations as tr
-import CC3501.auxiliares.utils.shapes as shapes
+import grafica.transformations as tr
+import auxiliares.utils.shapes as shapes
 
 WIDTH, HEIGHT = 800, 800
 
@@ -81,9 +82,18 @@ class Mesh(Model):
             colors = vertex_data[5][1]
         else:
             for i in range(count):
-                colors[i*3] = base_color[0]
-                colors[i*3 + 1] = base_color[1]
-                colors[i*3 + 1] = base_color[2]
+                if i % 3 == 0:
+                    colors[i*3] = base_color[0]
+                    colors[i*3 + 1] = base_color[1]
+                    colors[i*3 + 1] = base_color[2]
+                elif i % 3 == 1:
+                    colors[i*3] = base_color[0] + 0.1
+                    colors[i*3 + 1] = base_color[1] + 0.1
+                    colors[i*3 + 1] = base_color[2] + 0.1
+                else:
+                    colors[i*3] = base_color[0] + 0.3
+                    colors[i*3 + 1] = base_color[1] + 0.3
+                    colors[i*3 + 1] = base_color[2] + 0.3
 
         super().__init__(positions, colors, indices)
 
@@ -132,10 +142,10 @@ if __name__ == "__main__":
     # La ventana
     controller = Controller("Tarea 1", width=WIDTH, height=HEIGHT, resizable=True)
 
-    with open(Path(os.path.dirname(__file__)) / "shaders/transform.vert") as f:
+    with open(Path(os.path.dirname(__file__)) / "../auxiliares/shaders/transform.vert") as f:
         vertex_source_code = f.read()
 
-    with open(Path(os.path.dirname(__file__)) / "shaders/color.frag") as f:
+    with open(Path(os.path.dirname(__file__)) / "../auxiliares/shaders/color.frag") as f:
         fragment_source_code = f.read()
 
     vert_shader = pyglet.graphics.shader.Shader(vertex_source_code, "vertex")
@@ -170,17 +180,51 @@ if __name__ == "__main__":
     # Rear wheels
     RB6_RW_mesh1 = Mesh(Path(os.path.dirname(__file__)) / "RB6_rear_wheel.stl")
     RB6_RW_mesh1.init_gpu_data(pipeline)
-    RB6_RW_mesh1.position = np.array([0.45, 0, -0.93])
+    RB6_RW_mesh1.position = np.array([0.45, 0.03, -0.93])
     RB6_RW_mesh1.scale = np.array([0.45, 0.45, 0.45])
 
     RB6_RW_mesh2 = Mesh(Path(os.path.dirname(__file__)) / "RB6_rear_wheel.stl")
     RB6_RW_mesh2.init_gpu_data(pipeline)
     RB6_RW_mesh2.rotation = np.array([0, np.pi, 0])
-    RB6_RW_mesh2.position = np.array([-0.45, 0, -0.93])
+    RB6_RW_mesh2.position = np.array([-0.45, 0.03, -0.93])
     RB6_RW_mesh2.scale = np.array([0.45, 0.45, 0.45])
 
+    # Garage
+    garage_mesh = Mesh(Path(os.path.dirname(__file__)) / "cube.off", [0.2, 0.3, 0.5])
+    garage_mesh.init_gpu_data(pipeline)
+    garage_mesh.scale = np.array([5, 5, 5])
+    garage_mesh.position = np.array([0, 2.63, 0])
+
+    # Toolbox
+    toolbox_mesh = Mesh(Path(os.path.dirname(__file__)) / "toolbox.obj")
+    toolbox_mesh.init_gpu_data(pipeline)
+    toolbox_mesh.rotation = np.array([0, np.pi/4, 0])
+    toolbox_mesh.scale = np.array([0.4, 0.4, 0.4])
+    toolbox_mesh.position = np.array([-1.5, -0.11, 0])
+
     def update(dt):
-        camera.phi += dt
+
+        # Uncomment for manual camera control
+        # if controller.is_key_pressed(pyglet.window.key.A):
+        #     camera.phi -= dt
+        # if controller.is_key_pressed(pyglet.window.key.D):
+        #     camera.phi += dt
+        # if controller.is_key_pressed(pyglet.window.key.W):
+        #     camera.theta -= dt
+        # if controller.is_key_pressed(pyglet.window.key.S):
+        #     camera.theta += dt
+        # if controller.is_key_pressed(pyglet.window.key.Q):
+        #     camera.distance += dt
+        # if controller.is_key_pressed(pyglet.window.key.E):
+        #     camera.distance -= dt
+        # if controller.is_key_pressed(pyglet.window.key._1):
+        #     camera.type = "perspective"
+        # if controller.is_key_pressed(pyglet.window.key._2):
+        #     camera.type = "orthographic"
+
+        # Comment for manual camera control    
+        camera.phi += dt/2
+        
         camera.update()
 
     @controller.event
@@ -192,6 +236,16 @@ if __name__ == "__main__":
         pipeline["u_projection"] = camera.get_projection(controller.width, controller.height)
 
         axes.draw(GL.GL_LINES)
+        
+        # Garage
+        GL.glCullFace(GL.GL_FRONT)
+        pipeline["u_model"] = garage_mesh.get_transform()
+        garage_mesh.draw()
+        GL.glCullFace(GL.GL_BACK)
+
+        # Toolbox
+        pipeline["u_model"] = toolbox_mesh.get_transform()
+        toolbox_mesh.draw()
 
         # Front wheels
         pipeline["u_model"] = RB6_FW_mesh1.get_transform()
@@ -208,7 +262,6 @@ if __name__ == "__main__":
         # Body
         pipeline["u_model"] = RB6_mesh.get_transform()
         RB6_mesh.draw()
-        
 
     pyglet.clock.schedule_interval(update, 1/60)
     pyglet.app.run()
