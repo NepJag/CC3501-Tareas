@@ -176,6 +176,7 @@ class SceneGraph():
                 transformations[dst] = transformations[src] @ self.get_transform(dst)
 
             if current_node["mesh"] is not None:
+                print(current_node["mesh"].pipeline)
                 current_pipeline = current_node["mesh"].pipeline
                 current_pipeline.use()
 
