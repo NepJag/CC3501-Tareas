@@ -2,13 +2,14 @@ import pyglet
 from OpenGL import GL
 import numpy as np
 import sys
-
+import os
 # No es necesario este bloque de código si se ejecuta desde la carpeta raíz del repositorio
 # v
 if sys.path[0] != "":
     sys.path.insert(0, "")
 sys.path.append('../../')
 # ^
+sys.path.append(os.path.dirname(os.path.dirname((os.path.abspath(__file__)))))
 # No es necesario este bloque de código si se ejecuta desde la carpeta raíz del repositorio
 
 import auxiliares.utils.shapes as shapes
@@ -62,7 +63,7 @@ if __name__ == "__main__":
 
     cube = Model(shapes.Cube["position"], shapes.Cube["uv"], shapes.Cube["normal"], index_data=shapes.Cube["indices"])
     quad = Model(shapes.Square["position"], shapes.Square["uv"], shapes.Square["normal"], index_data=shapes.Square["indices"])
-    arrow = mesh_from_file("assets/arrow.off")[0]["mesh"]
+    arrow = mesh_from_file(r"CC3501-Tareas\assets\arrow.off")[0]["mesh"]
 
     graph = SceneGraph(controller)
 
@@ -118,7 +119,7 @@ if __name__ == "__main__":
         ambient = [1, 1, 1],
         shininess = 32)
 
-    textura = Texture("assets/wall1.jpg")
+    textura = Texture(r"CC3501-Tareas\assets\wall1.jpg")
 
     graph.add_node("object",
                    mesh = cube,

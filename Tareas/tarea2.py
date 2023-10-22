@@ -55,8 +55,9 @@ class Model():
             self.gpu_data = pipeline.vertex_list(len(self.position_data) // 3, GL.GL_TRIANGLES)
         
         self.gpu_data.position[:] = self.position_data
+        print(len(self.color_data), len(self.gpu_data.color))
         self.gpu_data.color[:] = np.array(self.color_data).flatten()
-
+        
     def draw(self, mode = GL.GL_TRIANGLES):
         self.gpu_data.draw(mode)
 
@@ -227,6 +228,8 @@ class CarSelect():
         RB6_RW_mesh.init_gpu_data(pipeline)
         hangar_mesh = Mesh(Path(os.path.dirname(__file__)) / "cube.off", [0.2, 0.3, 0.5])
         hangar_mesh.init_gpu_data(pipeline)
+        platform_mesh = Mesh(Path(os.path.dirname(__file__)) / "tech_pedestal.obj")
+        platform_mesh.init_gpu_data(pipeline)
         self.graph.add_node("garage")
         self.graph.add_node("hangar",
                             attach_to="garage",
@@ -235,10 +238,17 @@ class CarSelect():
                             position=[0, 2.63, 0],
                             rotation=[0, 0, 0],
                             scale=[5, 5, 5])
+        self.graph.add_node("platform",
+                            attach_to="hangar",
+                            mesh=platform_mesh,
+                            color=[0.2, 0.3, 0.5],
+                            position=[0, -0.55, 0],
+                            rotation=[0, 0, 0],
+                            scale=[0.6, 0.2, 0.6])
         self.graph.add_node("RB6",
                             mesh=RB6_mesh,
                             color=[1, 1, 1],
-                            position=[0, 0, 0],
+                            position=[0, 0.15, 0],
                             rotation=[-np.pi/2, 0, 0],
                             scale=[1.5, 1.5, 1.5])
         self.graph.add_node("RB6_FW",
@@ -260,14 +270,14 @@ class CarSelect():
                             mesh=RB6_RW_mesh,
                             color=[1, 1, 1],
                             position=[0.33, 0.65, 0.03],
-                            scale=[0.3, 0.3, 0.3])
+                            scale=[0.35, 0.3, 0.3])
         self.graph.add_node("RB6_RW2",
                             attach_to="RB6",
                             mesh=RB6_RW_mesh,
                             color=[1, 1, 1],
                             position=[-0.33, 0.65, 0.03],
                             rotation=[0, np.pi, 0],
-                            scale=[0.3, 0.3, 0.3])
+                            scale=[0.35, 0.3, 0.3])
         
     def draw(self):
         self.graph.draw()
@@ -289,7 +299,7 @@ if __name__ == "__main__":
 
     pipeline = pyglet.graphics.shader.ShaderProgram(vert_shader, frag_shader)
     
-    camera = OrbitCamera(3, "perspective")
+    camera = OrbitCamera(3, "orthographic")
     camera.phi = np.pi / 4
     camera.theta = np.pi / 4
     

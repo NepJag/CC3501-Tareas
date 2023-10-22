@@ -2,13 +2,14 @@ import pyglet
 from OpenGL import GL
 import numpy as np
 import sys
-
+import os
 # No es necesario este bloque de código si se ejecuta desde la carpeta raíz del repositorio
 # v
 if sys.path[0] != "":
     sys.path.insert(0, "")
 sys.path.append('../../')
 # ^
+sys.path.append(os.path.dirname(os.path.dirname((os.path.abspath(__file__)))))
 # No es necesario este bloque de código si se ejecuta desde la carpeta raíz del repositorio
 
 import auxiliares.utils.shapes as shapes
@@ -81,7 +82,7 @@ if __name__ == "__main__":
                    mesh = quad,
                    pipeline = textured_mesh_lit_pipeline,
                    rotation = [-np.pi/2, 0, 0],
-                   texture=Texture("assets/wall1.jpg"),
+                   texture=Texture(r"CC3501-Tareas\assets\wall1.jpg"),
                    scale = [5, 5, 1],
                    material = Material())
     

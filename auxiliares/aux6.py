@@ -3,6 +3,7 @@ from OpenGL import GL
 from networkx import DiGraph, edge_dfs
 import numpy as np
 import sys
+import os
 
 # No es necesario este bloque de código si se ejecuta desde la carpeta raíz del repositorio
 # v
@@ -10,6 +11,7 @@ if sys.path[0] != "":
     sys.path.insert(0, "")
 sys.path.append('../../')
 # ^
+sys.path.append(os.path.dirname(os.path.dirname((os.path.abspath(__file__)))))
 # No es necesario este bloque de código si se ejecuta desde la carpeta raíz del repositorio
 
 import grafica.transformations as tr
@@ -258,15 +260,15 @@ if __name__ == "__main__":
     triangle = Model(shapes.Triangle["position"], shapes.Triangle["uv"], shapes.Triangle["normal"])
     quad = Model(shapes.Square["position"], shapes.Square["uv"], shapes.Square["normal"], index_data=shapes.Square["indices"])
 
-    textura = Texture("assets/bricks.jpg")
-    textura2 = Texture("assets/boo.png", maxFilterMode=GL.GL_NEAREST)
+    textura = Texture(r"CC3501-Tareas\assets\bricks.jpg")
+    textura2 = Texture(r"CC3501-Tareas\assets\boo.png", maxFilterMode=GL.GL_NEAREST)
 
     graph = SceneGraph(controller)
     graph.add_node("shapes")
 
     # mesh_from_file() devuelve una lista de diccionarios, cada uno con la información de un mesh
     # [{id, mesh, texture}, ...]
-    zorzal = mesh_from_file("assets/zorzal.obj")
+    zorzal = mesh_from_file(r"CC3501-Tareas\assets\zorzal.obj")
     for i in range(len(zorzal)):
         graph.add_node(zorzal[i]["id"],
                     attach_to="root",
