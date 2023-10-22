@@ -187,6 +187,11 @@ class SceneGraph():
         transformations = {root_key: self.get_transform(root_key)}
 
         for src, dst in edges:
+            if dst == "hangar":
+                GL.glCullFace(GL.GL_FRONT)
+            else:
+                GL.glCullFace(GL.GL_BACK)
+
             current_node = self.graph.nodes[dst]
 
             if not dst in transformations:
@@ -208,6 +213,8 @@ class SceneGraph():
                 if "u_color" in current_pipeline.uniforms:
                     current_pipeline["u_color"] = np.array(current_node["color"], dtype=np.float32)
                 current_node["mesh"].draw(current_node["mode"])
+            # if current_node["hangar"]:
+            #     GL.glCullFace(GL.GL_FRONT)
 
 class CarSelect():
     def __init__(self, pipeline,camera):
