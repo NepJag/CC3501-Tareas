@@ -148,7 +148,7 @@ if __name__ == "__main__":
                    pipeline = textured_mesh_lit_pipeline,
                    position= [0, 2.5, -15],
                    rotation = [0, 0, 0],
-                   texture=Texture(r"CC3501-Tareas\assets\wall1.jpg"),
+                   texture=Texture(r"CC3501-Tareas\Tareas\wall1.jpg"),
                    scale = [50, 5, 1],
                    material = Material(shininess=64),
                    )
@@ -157,7 +157,7 @@ if __name__ == "__main__":
                    pipeline = textured_mesh_lit_pipeline,
                    position= [0, 2.5, 15],
                    rotation = [0, np.pi, 0],
-                   texture=Texture(r"CC3501-Tareas\assets\wall1.jpg"),
+                   texture=Texture(r"CC3501-Tareas\Tareas\wall1.jpg"),
                    scale = [50, 5, 1],
                    material = Material(shininess=64),
                    )
