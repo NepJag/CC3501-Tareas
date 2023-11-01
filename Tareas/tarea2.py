@@ -1,29 +1,38 @@
 import pyglet
 from OpenGL import GL
 import numpy as np
-import trimesh as tm
-import networkx as nx
-import os
 import sys
-from pathlib import Path
-
+import os
+# No es necesario este bloque de código si se ejecuta desde la carpeta raíz del repositorio
+# v
+if sys.path[0] != "":
+    sys.path.insert(0, "")
+sys.path.append('../../')
+# ^
 sys.path.append(os.path.dirname(os.path.dirname((os.path.abspath(__file__)))))
-import grafica.transformations as tr
+# No es necesario este bloque de código si se ejecuta desde la carpeta raíz del repositorio
+
 import auxiliares.utils.shapes as shapes
+from auxiliares.utils.camera import FreeCamera, OrbitCamera
+from auxiliares.utils.scene_graph import SceneGraph
+from auxiliares.utils.drawables import Model, Texture, DirectionalLight, Material, SpotLight
+from auxiliares.utils.colliders import CollisionManager, AABB, Sphere
+from auxiliares.utils.helpers import init_axis, init_pipeline, mesh_from_file, get_path
 
 WIDTH, HEIGHT = 800, 800
 
 class Controller(pyglet.window.Window):
     def __init__(self, title, *args, **kargs):
         super().__init__(*args, **kargs)
-        self.set_minimum_size(240, 240)
+        self.set_minimum_size(240, 240) # Evita error cuando se redimensiona a 0
         self.set_caption(title)
         self.key_handler = pyglet.window.key.KeyStateHandler()
         self.push_handlers(self.key_handler)
+        self.program_state = { "total_time": 0.0, "camera": None }
         self.init()
-    
+
     def init(self):
-        GL.glClearColor(0, 0, 0, 0)
+        GL.glClearColor(1, 1, 1, 1.0)
         GL.glEnable(GL.GL_DEPTH_TEST)
         GL.glEnable(GL.GL_CULL_FACE)
         GL.glCullFace(GL.GL_BACK)
@@ -32,286 +41,195 @@ class Controller(pyglet.window.Window):
     def is_key_pressed(self, key):
         return self.key_handler[key]
     
-class Model():
-    def __init__(self, position_data, color_data, index_data=None):
-        self.position_data = position_data
-        self.color_data = color_data
-
-        self.index_data = index_data
-        if index_data is not None:
-            self.index_data = np.array(index_data, dtype=np.uint32)
-
-        self.gpu_data = None
-        
-        self.position = np.array([0, 0, 0], dtype=np.float32)
-        self.rotation = np.array([0, 0, 0], dtype=np.float32)
-        self.scale = np.array([1, 1, 1], dtype=np.float32)
-
-    def init_gpu_data(self, pipeline):
-        self.pipeline = pipeline
-        if self.index_data is not None:
-            self.gpu_data = pipeline.vertex_list_indexed(len(self.position_data) // 3, GL.GL_TRIANGLES, self.index_data)
-        else:
-            self.gpu_data = pipeline.vertex_list(len(self.position_data) // 3, GL.GL_TRIANGLES)
-        
-        self.gpu_data.position[:] = self.position_data
-        print(len(self.color_data), len(self.gpu_data.color))
-        self.gpu_data.color[:] = np.array(self.color_data).flatten()
-        
-    def draw(self, mode = GL.GL_TRIANGLES):
-        self.gpu_data.draw(mode)
-
-class Mesh(Model):
-    def __init__(self, asset_path, base_color=None):
-        mesh_data = tm.load(asset_path)
-        mesh_scale = tr.uniformScale(2.0 / mesh_data.scale)
-        mesh_translate = tr.translate(*-mesh_data.centroid)
-        mesh_data.apply_transform(mesh_scale @ mesh_translate)
-        vertex_data = tm.rendering.mesh_to_vertexlist(mesh_data)
-        indices = vertex_data[3]
-        positions = vertex_data[4][1]
-
-        count = len(positions) // 3
-        colors = np.full((count * 3, 1), 1.0)
-        if base_color is None:
-            colors = vertex_data[5][1]
-        else:
-            for i in range(count):
-                if i % 3 == 0:
-                    colors[i*3] = base_color[0]
-                    colors[i*3 + 1] = base_color[1]
-                    colors[i*3 + 1] = base_color[2]
-                elif i % 3 == 1:
-                    colors[i*3] = base_color[0] + 0.1
-                    colors[i*3 + 1] = base_color[1] + 0.1
-                    colors[i*3 + 1] = base_color[2] + 0.1
-                else:
-                    colors[i*3] = base_color[0] + 0.3
-                    colors[i*3 + 1] = base_color[1] + 0.3
-                    colors[i*3 + 1] = base_color[2] + 0.3
-
-        super().__init__(positions, colors, indices)
-
-class Camera():
-    def __init__(self, camera_type = "perspective"):
-        self.position = np.array([1, 0, 0], dtype=np.float32)
-        self.focus = np.array([0, 0, 0], dtype=np.float32)
-        self.type = camera_type
-    
-    def update(self):
-        pass
-
-    def get_view(self):
-        lookAt_matrix = tr.lookAt(self.position, self.focus, np.array([0, 1, 0]))
-        return np.reshape(lookAt_matrix, (16, 1), order="F")
-    
-    def get_projection(self, width=WIDTH, height=HEIGHT):
-        if self.type == "perspective":
-            perspective_matrix = tr.perspective(90, width/height, 0.01, 100)
-        elif self.type == "orthographic":
-            depth = self.position - self.focus
-            depth = np.linalg.norm(depth)
-            perspective_matrix = tr.ortho(-(width/height) * depth, (width/height) * depth, -1 * depth, 1 * depth, 0.01, 100)
-        return np.reshape(perspective_matrix, (16, 1), order="F")
-
-class OrbitCamera(Camera):
-    def __init__(self, distance, camera_type = "perspective"):
-        super().__init__(camera_type)
-        self.distance = distance
-        self.phi = 0
-        self.theta = np.pi/2
-        self.update()
-
-    def update(self):
-        if self.theta > np.pi:
-            self.theta = np.pi
-        elif self.theta < 0:
-            self.theta = 0.0001
-        
-        self.position[0] = self.distance * np.sin(self.theta) * np.sin(self.phi)
-        self.position[1] = self.distance * np.cos(self.theta)
-        self.position[2] = self.distance * np.sin(self.theta) * np.cos(self.phi)
-
-class SceneGraph():
-    def __init__(self, camera=None):
-        self.graph = nx.DiGraph(root="root")
-        self.add_node("root")
-        self.camera = camera
-
-    def add_node(self,
-                 name,
-                 attach_to=None,
-                 mesh=None,
-                 color=[1, 1, 1],
-                 transform=tr.identity(),
-                 position=[0, 0, 0],
-                 rotation=[0, 0, 0],
-                 scale=[1, 1, 1],
-                 mode=GL.GL_TRIANGLES):
-        self.graph.add_node(
-            name, 
-            mesh=mesh, 
-            color=color,
-            transform=transform,
-            position=np.array(position, dtype=np.float32),
-            rotation=np.array(rotation, dtype=np.float32),
-            scale=np.array(scale, dtype=np.float32),
-            mode=mode)
-        if attach_to is None:
-            attach_to = "root"
-        
-        self.graph.add_edge(attach_to, name)
-
-    def __getitem__(self, name):
-        if name not in self.graph.nodes:
-            raise KeyError(f"Node {name} not in graph")
-
-        return self.graph.nodes[name]
-    
-    def __setitem__(self, name, value):
-        if name not in self.graph.nodes:
-            raise KeyError(f"Node {name} not in graph")
-
-        self.graph.nodes[name] = value
-    
-    def get_transform(self, node):
-        node = self.graph.nodes[node]
-        transform = node["transform"]
-        translation_matrix = tr.translate(node["position"][0], node["position"][1], node["position"][2])
-        rotation_matrix = tr.rotationX(node["rotation"][0]) @ tr.rotationY(node["rotation"][1]) @ tr.rotationZ(node["rotation"][2])
-        scale_matrix = tr.scale(node["scale"][0], node["scale"][1], node["scale"][2])
-        return transform @ translation_matrix @ rotation_matrix @ scale_matrix
-
-    def draw(self):
-        root_key = self.graph.graph["root"]
-        edges = list(nx.edge_dfs(self.graph, source=root_key))
-        transformations = {root_key: self.get_transform(root_key)}
-
-        for src, dst in edges:
-            if dst == "hangar":
-                GL.glCullFace(GL.GL_FRONT)
-            else:
-                GL.glCullFace(GL.GL_BACK)
-
-            current_node = self.graph.nodes[dst]
-
-            if not dst in transformations:
-                transformations[dst] = transformations[src] @ self.get_transform(dst)
-
-            if current_node["mesh"] is not None:
-                current_pipeline = current_node["mesh"].pipeline
-                current_pipeline.use()
-
-                if self.camera is not None:
-                    if "u_view" in current_pipeline.uniforms:
-                        current_pipeline["u_view"] = self.camera.get_view()
-
-                    if "u_projection" in current_pipeline.uniforms:
-                        current_pipeline["u_projection"] = self.camera.get_projection()
-
-                current_pipeline["u_model"] = np.reshape(transformations[dst], (16, 1), order="F")
-
-                if "u_color" in current_pipeline.uniforms:
-                    current_pipeline["u_color"] = np.array(current_node["color"], dtype=np.float32)
-                current_node["mesh"].draw(current_node["mode"])
-            # if current_node["hangar"]:
-            #     GL.glCullFace(GL.GL_FRONT)
-
-class CarSelect():
-    def __init__(self, pipeline,camera):
-        self.graph = SceneGraph(camera)
-        RB6_mesh = Mesh(Path(os.path.dirname(__file__)) / "RB6.stl")
-        RB6_mesh.init_gpu_data(pipeline)
-        RB6_FW_mesh = Mesh(Path(os.path.dirname(__file__)) / "RB6_front_wheel.stl")
-        RB6_FW_mesh.init_gpu_data(pipeline)
-        RB6_RW_mesh = Mesh(Path(os.path.dirname(__file__)) / "RB6_rear_wheel.stl")
-        RB6_RW_mesh.init_gpu_data(pipeline)
-        hangar_mesh = Mesh(Path(os.path.dirname(__file__)) / "cube.off", [0.2, 0.3, 0.5])
-        hangar_mesh.init_gpu_data(pipeline)
-        platform_mesh = Mesh(Path(os.path.dirname(__file__)) / "tech_pedestal.obj")
-        platform_mesh.init_gpu_data(pipeline)
-        self.graph.add_node("garage")
-        self.graph.add_node("hangar",
-                            attach_to="garage",
-                            mesh=hangar_mesh,
-                            color=[0.2, 0.3, 0.5],
-                            position=[0, 2.63, 0],
-                            rotation=[0, 0, 0],
-                            scale=[5, 5, 5])
-        self.graph.add_node("platform",
-                            attach_to="hangar",
-                            mesh=platform_mesh,
-                            color=[0.2, 0.3, 0.5],
-                            position=[0, -0.55, 0],
-                            rotation=[0, 0, 0],
-                            scale=[0.6, 0.2, 0.6])
-        self.graph.add_node("RB6",
-                            mesh=RB6_mesh,
-                            color=[1, 1, 1],
-                            position=[0, 0.15, 0],
-                            rotation=[-np.pi/2, 0, 0],
-                            scale=[1.5, 1.5, 1.5])
-        self.graph.add_node("RB6_FW",
-                            attach_to="RB6",
-                            mesh=RB6_FW_mesh,
-                            color=[1, 1, 1],
-                            position=[0.31, -0.61, 0.01],
-                            rotation=[0, 0, 0],
-                            scale=[24/90, 24/90, 24/90])
-        self.graph.add_node("RB6_FW2",
-                            attach_to="RB6",
-                            mesh=RB6_FW_mesh,
-                            color=[1, 1, 1],
-                            position=[-0.31, -0.61, 0.01],
-                            rotation=[0, np.pi, 0],
-                            scale=[24/90, 24/90, 24/90])
-        self.graph.add_node("RB6_RW",
-                            attach_to="RB6",
-                            mesh=RB6_RW_mesh,
-                            color=[1, 1, 1],
-                            position=[0.33, 0.65, 0.03],
-                            scale=[0.35, 0.3, 0.3])
-        self.graph.add_node("RB6_RW2",
-                            attach_to="RB6",
-                            mesh=RB6_RW_mesh,
-                            color=[1, 1, 1],
-                            position=[-0.33, 0.65, 0.03],
-                            rotation=[0, np.pi, 0],
-                            scale=[0.35, 0.3, 0.3])
-        
-    def draw(self):
-        self.graph.draw()
-    
-
 if __name__ == "__main__":
 
     # La ventana
-    controller = Controller("Tarea 1", width=WIDTH, height=HEIGHT, resizable=True)
+    controller = Controller("Tarea 2", width=WIDTH, height=HEIGHT, resizable=True)
 
-    with open(Path(os.path.dirname(__file__)) / "../auxiliares/shaders/transform.vert") as f:
-        vertex_source_code = f.read()
+    controller.program_state["camera"] = OrbitCamera(5, "perspective")
+    controller.program_state["camera"].phi = -np.pi/4
+    controller.program_state["camera"].theta = np.pi / 4
+    camera = controller.program_state["camera"]
 
-    with open(Path(os.path.dirname(__file__)) / "../auxiliares/shaders/color.frag") as f:
-        fragment_source_code = f.read()
-
-    vert_shader = pyglet.graphics.shader.Shader(vertex_source_code, "vertex")
-    frag_shader = pyglet.graphics.shader.Shader(fragment_source_code, "fragment")
-
-    pipeline = pyglet.graphics.shader.ShaderProgram(vert_shader, frag_shader)
+    color_mesh_pipeline = init_pipeline(
+        get_path("auxiliares/shaders/color_mesh.vert"),
+        get_path("auxiliares/shaders/color_mesh.frag"))
     
-    camera = OrbitCamera(3, "orthographic")
-    camera.phi = np.pi / 4
-    camera.theta = np.pi / 4
+    textured_mesh_pipeline = init_pipeline(
+        get_path("auxiliares/shaders/textured_mesh.vert"),
+        get_path("auxiliares/shaders/textured_mesh.frag"))
     
-    # Axes
-    axes = Model(shapes.Axes["position"], shapes.Axes["color"])
-    axes.init_gpu_data(pipeline)
-    axis_scene = SceneGraph(camera)
-    axis_scene.add_node("axes", attach_to="root", mesh=axes, mode=GL.GL_LINES)
+    color_mesh_lit_pipeline = init_pipeline(
+        get_path("auxiliares/shaders/color_mesh_lit.vert"),
+        get_path("auxiliares/shaders/color_mesh_lit.frag"))
+    
+    textured_mesh_lit_pipeline = init_pipeline(
+        get_path("auxiliares/shaders/textured_mesh_lit.vert"),
+        get_path("auxiliares/shaders/textured_mesh_lit.frag"))
+    
+    # Meshes
+    quad = Model(shapes.Square["position"], shapes.Square["uv"], shapes.Square["normal"], index_data=shapes.Square["indices"])
+    platform = mesh_from_file(get_path("Tareas/tech_pedestal.obj"))[0]["mesh"]
+    RB6 = mesh_from_file(get_path("Tareas/RB6.stl"))[0]["mesh"]
+    RB6_FW = mesh_from_file(get_path("Tareas/RB6_front_wheel.stl"))[0]["mesh"]
+    RB6_RW = mesh_from_file(get_path("Tareas/RB6_rear_wheel.stl"))[0]["mesh"]
 
-    # Scene graph
-    car_select = CarSelect(pipeline, camera)
+    arrow = mesh_from_file(r"CC3501-Tareas\assets\arrow.off")[0]["mesh"]
 
+    graph = SceneGraph(controller)
+    graph.add_node("sun",
+                    pipeline=[color_mesh_lit_pipeline, textured_mesh_lit_pipeline],
+                    light=DirectionalLight(
+                            diffuse=[0.5, 0.5, 0.5], 
+                            specular=[1, 1, 1], 
+                            ambient=[0.1, 0.1, 0.1]),
+                    rotation=[-np.pi/4, 0, 0],
+                   )
+    graph.add_node("spotlight1",
+                   pipeline=[color_mesh_lit_pipeline, textured_mesh_lit_pipeline],
+                   position=[-2, 1, -2],
+                   rotation=[-3*np.pi/4, np.pi/4, 0],
+                   light=SpotLight(
+                          diffuse = [1, 0, 0],
+                          specular = [1, 0, 0],
+                          ambient = [0.2, 0, 0],
+                          cutOff = 0.91, # siempre mayor a outerCutOff
+                          outerCutOff = 0.82
+                   )
+                )
+
+    graph.add_node("spotlight2",
+            pipeline=[color_mesh_lit_pipeline, textured_mesh_lit_pipeline],
+            position=[2, 1, -2],
+            rotation=[-3*np.pi/4, -np.pi/4, 0],
+            light=SpotLight(
+                diffuse = [0, 1, 0],
+                specular = [0, 1, 0],
+                ambient = [0, 0.2, 0],
+                cutOff = 0.91, # siempre mayor a outerCutOff
+                outerCutOff = 0.82
+                )
+            )
+
+    graph.add_node("spotlight3",
+            pipeline=[color_mesh_lit_pipeline, textured_mesh_lit_pipeline],
+            position=[2, 1, 2],
+            rotation=[-3*np.pi/4, 5*np.pi/4, 0],
+            light=SpotLight(
+                diffuse = [0, 0, 1],
+                specular = [0, 0, 1],
+                ambient = [0, 0, 0.2],
+                cutOff = 0.91, # siempre mayor a outerCutOff
+                outerCutOff = 0.82
+                )
+            )
+
+    graph.add_node("spotlight4",
+            pipeline=[color_mesh_lit_pipeline, textured_mesh_lit_pipeline],
+            position=[-2, 1, 2],
+            rotation=[-3*np.pi/4, 3*np.pi/4, 0],
+            light=SpotLight(
+                diffuse = [1, 1, 0],
+                specular = [1, 1, 0],
+                ambient = [0.2, 0.2, 0],
+                cutOff = 0.91, # siempre mayor a outerCutOff
+                outerCutOff = 0.82
+                )
+            )
+
+    graph.add_node("floor",
+                   mesh = quad,
+                   pipeline = textured_mesh_lit_pipeline,
+                   rotation = [-np.pi/2, 0, 0],
+                   texture=Texture(r"CC3501-Tareas\Tareas\black-stones-tiled-floor.jpg", sWrapMode=GL.GL_REPEAT, tWrapMode=GL.GL_REPEAT),
+                   scale = [30, 30, 1],
+                   material = Material(shininess=5))
+    graph.add_node("wall",
+                   mesh = quad,
+                   pipeline = textured_mesh_lit_pipeline,
+                   position= [0, 2.5, -10],
+                   rotation = [0, 0, 0],
+                   texture=Texture(r"CC3501-Tareas\assets\wall1.jpg"),
+                   scale = [5, 5, 1],
+                   material = Material(shininess=64),
+                   )
+    graph.add_node("platform",
+                   mesh= platform,
+                   pipeline = textured_mesh_lit_pipeline,
+                   position=[0, 0.05, 0],
+                   rotation=[0, 0, 0],
+                   scale=[2.5, 0.3, 2.5],
+                   material = Material(diffuse=[0.75, 0.75, 0.75]),
+                   )
+    
+    # Number of cars (max 10)
+    n = 10
+    wheel_mat = Material(specular=[0.3, 0.3, 0.3], diffuse=[0.1,0.1,0.1], shininess=64)
+    origin = [0, 0.3, 0]
+
+    # Ten teams colors
+    colors = np.array([[166, 5, 26], # Ferrari
+                       [0, 19, 68], # Red Bull
+                       [255, 128, 0], # McLaren
+                       [13, 14, 14], # Mercedes
+                       [249, 242, 242], # Haas
+                       [32, 57, 76], # Alpha Tauri
+                       [152, 30, 50], # Alfa Romeo
+                       [0, 160, 222], # Williams
+                       [33, 115, 184], # Alpine
+                       [3, 122, 104] # Aston Martin
+                       ])
+    colors = colors / 255
+
+    shininess = np.array([32, 64, 16, 128, 256, 64, 64, 16, 8, 16])
+
+    graph.add_node("Cars")
+    for i in range(n):
+        graph.add_node(f"RB6_{i}",
+                       mesh= RB6,
+                       attach_to="Cars",
+                       pipeline = color_mesh_lit_pipeline,
+                       position=[origin[0] + 6*i, origin[1], origin[2]],
+                       rotation=[-np.pi/2, 0, 0],
+                       scale=[1.5, 1.5, 1.5],
+                       material = Material(diffuse=colors[i], shininess=shininess[i]),
+                       )
+        graph.add_node(f"RB6_{i}_FW1",
+                    attach_to=f"RB6_{i}",
+                    mesh= RB6_FW,
+                    pipeline = color_mesh_lit_pipeline,
+                    position=[0.28, -0.61, 0.03],
+                    rotation=[0, 0, 0],
+                    scale=[0.3, 0.3, 0.3],
+                    material = wheel_mat,
+                    )
+        graph.add_node(f"RB6_{i}_FW2",
+                    attach_to=f"RB6_{i}",
+                    mesh= RB6_FW,
+                    pipeline = color_mesh_lit_pipeline,
+                    position=[-0.28, -0.61, 0.03],
+                    rotation=[0, np.pi, 0],
+                    scale=[0.3, 0.3, 0.3],
+                    material = wheel_mat,
+                    )
+        graph.add_node(f"RB6_{i}_RW1",
+                    attach_to=f"RB6_{i}",
+                    mesh= RB6_RW,
+                    pipeline = color_mesh_lit_pipeline,
+                    position=[0.3, 0.65, 0.03],
+                    scale=[0.35, 0.3, 0.3],
+                    material = wheel_mat,
+                    )
+        graph.add_node(f"RB6_{i}_RW2",
+                    attach_to=f"RB6_{i}",
+                    mesh= RB6_RW,
+                    pipeline = color_mesh_lit_pipeline,
+                    position=[-0.3, 0.65, 0.03],
+                    rotation=[0, np.pi, 0],
+                    scale=[0.35, 0.3, 0.3],
+                    material = wheel_mat,
+                    )
+    
     def update(dt):
 
         # Uncomment for manual camera control
@@ -333,20 +251,65 @@ if __name__ == "__main__":
             camera.type = "orthographic"
 
         # # Comment for manual camera control    
-        # camera.phi += dt/2
+        camera.phi += dt/2
         
         camera.update()
+
+    cars = graph["Cars"]
+    # @controller.event
+    # def on_key_press(symbol, modifiers):
+    #     if symbol == pyglet.window.key.SPACE:
+    #         # Translate by 6 units, wrap with modulus
+    #         print((cars["position"][0] - 6))
+    #         cars["position"][0] = (cars["position"][0] - 6) % (-6*n)
+
+
+    # Animation duration 
+    duration = 1
+
+    # Target position
+    target_pos = None
+
+    # Tween progress  
+    tween = 0
+
+    # On key press start animation
+    @controller.event
+    def on_key_press(symbol, modifiers):
+        global target_pos, tween
+        
+        if symbol == pyglet.window.key.SPACE:
+            
+            target_pos = (cars["position"][0] - 6) % (-6 * n)
+            if target_pos == -0:
+                target_pos = 0
+
+    # In update, lerp between current and target        
+    def update(dt):
+        
+        global tween, target_pos
+        
+        if target_pos is not None:
+            tween = min(tween + dt, duration) / duration
+            t = tween
+            cars["position"][0] = (1 - t) * cars["position"][0] + t * target_pos
+
+            if tween == 1:
+                target_pos = None
+                tween = 0
+        
+        camera.phi += dt/2
+        
+        camera.update()                
+
+    @controller.event
+    def on_resize(width, height):
+        controller.program_state["camera"].resize(width, height)
 
     @controller.event
     def on_draw():
         controller.clear()
-        pipeline.use()
-        
-        pipeline["u_view"] = camera.get_view()
-        pipeline["u_projection"] = camera.get_projection(controller.width, controller.height)
-
-        axis_scene.draw()
-        car_select.draw()
+        graph.draw()
 
     pyglet.clock.schedule_interval(update, 1/60)
     pyglet.app.run()
