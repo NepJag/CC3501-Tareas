@@ -32,7 +32,7 @@ class Controller(pyglet.window.Window):
         self.init()
 
     def init(self):
-        GL.glClearColor(1, 1, 1, 1.0)
+        GL.glClearColor(0, 0, 0, 1.0)
         GL.glEnable(GL.GL_DEPTH_TEST)
         GL.glEnable(GL.GL_CULL_FACE)
         GL.glCullFace(GL.GL_BACK)
@@ -79,10 +79,7 @@ if __name__ == "__main__":
     graph = SceneGraph(controller)
     graph.add_node("sun",
                     pipeline=[color_mesh_lit_pipeline, textured_mesh_lit_pipeline],
-                    light=DirectionalLight(
-                            diffuse=[0.5, 0.5, 0.5], 
-                            specular=[1, 1, 1], 
-                            ambient=[0.1, 0.1, 0.1]),
+                    light=DirectionalLight(),
                     rotation=[-np.pi/4, 0, 0],
                    )
     graph.add_node("spotlight1",
@@ -141,16 +138,27 @@ if __name__ == "__main__":
                    mesh = quad,
                    pipeline = textured_mesh_lit_pipeline,
                    rotation = [-np.pi/2, 0, 0],
-                   texture=Texture(r"CC3501-Tareas\Tareas\black-stones-tiled-floor.jpg", sWrapMode=GL.GL_REPEAT, tWrapMode=GL.GL_REPEAT),
-                   scale = [30, 30, 1],
-                   material = Material(shininess=5))
-    graph.add_node("wall",
+                   texture=Texture(r"CC3501-Tareas\Tareas\black-stones-tiled-floor.jpg",
+                                    sWrapMode=GL.GL_REPEAT, 
+                                    tWrapMode=GL.GL_REPEAT),
+                   scale = [50, 30, 1],
+                   material = Material(shininess=64))
+    graph.add_node("wall1",
                    mesh = quad,
                    pipeline = textured_mesh_lit_pipeline,
-                   position= [0, 2.5, -10],
+                   position= [0, 2.5, -15],
                    rotation = [0, 0, 0],
                    texture=Texture(r"CC3501-Tareas\assets\wall1.jpg"),
-                   scale = [5, 5, 1],
+                   scale = [50, 5, 1],
+                   material = Material(shininess=64),
+                   )
+    graph.add_node("wall2",
+                   mesh = quad,
+                   pipeline = textured_mesh_lit_pipeline,
+                   position= [0, 2.5, 15],
+                   rotation = [0, np.pi, 0],
+                   texture=Texture(r"CC3501-Tareas\assets\wall1.jpg"),
+                   scale = [50, 5, 1],
                    material = Material(shininess=64),
                    )
     graph.add_node("platform",
@@ -163,7 +171,7 @@ if __name__ == "__main__":
                    )
     
     # Number of cars (max 10)
-    n = 10
+    n = 4
     wheel_mat = Material(specular=[0.3, 0.3, 0.3], diffuse=[0.1,0.1,0.1], shininess=64)
     origin = [0, 0.3, 0]
 
