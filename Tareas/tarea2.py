@@ -13,11 +13,10 @@ sys.path.append(os.path.dirname(os.path.dirname((os.path.abspath(__file__)))))
 # No es necesario este bloque de código si se ejecuta desde la carpeta raíz del repositorio
 
 import auxiliares.utils.shapes as shapes
-from auxiliares.utils.camera import FreeCamera, OrbitCamera
+from auxiliares.utils.camera import OrbitCamera
 from auxiliares.utils.scene_graph import SceneGraph
 from auxiliares.utils.drawables import Model, Texture, DirectionalLight, Material, SpotLight
-from auxiliares.utils.colliders import CollisionManager, AABB, Sphere
-from auxiliares.utils.helpers import init_axis, init_pipeline, mesh_from_file, get_path
+from auxiliares.utils.helpers import init_pipeline, mesh_from_file, get_path
 
 WIDTH, HEIGHT = 800, 800
 
@@ -73,8 +72,6 @@ if __name__ == "__main__":
     RB6 = mesh_from_file(get_path("Tareas/RB6.stl"))[0]["mesh"]
     RB6_FW = mesh_from_file(get_path("Tareas/RB6_front_wheel.stl"))[0]["mesh"]
     RB6_RW = mesh_from_file(get_path("Tareas/RB6_rear_wheel.stl"))[0]["mesh"]
-
-    arrow = mesh_from_file(r"CC3501-Tareas\assets\arrow.off")[0]["mesh"]
 
     graph = SceneGraph(controller)
     graph.add_node("sun",
@@ -264,13 +261,6 @@ if __name__ == "__main__":
         camera.update()
 
     cars = graph["Cars"]
-    # @controller.event
-    # def on_key_press(symbol, modifiers):
-    #     if symbol == pyglet.window.key.SPACE:
-    #         # Translate by 6 units, wrap with modulus
-    #         print((cars["position"][0] - 6))
-    #         cars["position"][0] = (cars["position"][0] - 6) % (-6*n)
-
 
     # Animation duration 
     duration = 1
