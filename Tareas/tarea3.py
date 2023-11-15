@@ -271,18 +271,45 @@ if __name__ == "__main__":
     # Tween progress  
     tween = 0
 
+    # Selected car
+    selected_car = None
+    play_graph = SceneGraph(controller)
+    play_graph.add_node("sun",
+                    pipeline=[color_mesh_lit_pipeline, textured_mesh_lit_pipeline],
+                    light=DirectionalLight(),
+                    rotation=[-np.pi/4, 0, 0],
+                   )
+    play_graph.add_node("floor",
+                   mesh = quad,
+                   pipeline = textured_mesh_lit_pipeline,
+                   rotation = [-np.pi/2, 0, 0],
+                   texture=None,
+                   scale = [50, 30, 1],
+                   material = Material(shininess=64))
+
     # On key press start animation
     @controller.event
     def on_key_press(symbol, modifiers):
-        global target_pos, tween
+        global target_pos, tween, selected_car
         
         if symbol == pyglet.window.key.SPACE:
             
             target_pos = (cars["position"][0] - 6) % (-6 * n)
             if target_pos == -0:
                 target_pos = 0
-
-    # In update, lerp between current and target        
+        
+        elif symbol == pyglet.window.key.ENTER:
+            i = int(np.absolute(cars["position"][0] // 6))
+            #print(i)
+            selected_car_name = f"RB6_{i}"
+            selected_car = graph[selected_car_name]
+            #print(selected_car)
+            play_graph.add_node(f"RB6_{i}", **selected_car)
+            play_graph.add_node(f"RB6_{i}_FW1", **graph[f"RB6_{i}_FW1"])
+            play_graph.add_node(f"RB6_{i}_FW2", **graph[f"RB6_{i}_FW2"])
+            play_graph.add_node(f"RB6_{i}_RW1", **graph[f"RB6_{i}_RW1"])
+            play_graph.add_node(f"RB6_{i}_RW2", **graph[f"RB6_{i}_RW2"])
+            
     def update(dt):
         
         global tween, target_pos
@@ -307,7 +334,11 @@ if __name__ == "__main__":
     @controller.event
     def on_draw():
         controller.clear()
-        graph.draw()
+        if selected_car:
+            controller.clear()
+            play_graph.draw()
+        else:
+            graph.draw()
 
     pyglet.clock.schedule_interval(update, 1/60)
     pyglet.app.run()
