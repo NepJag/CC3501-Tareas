@@ -84,10 +84,10 @@ if __name__ == "__main__":
     cube = Model(shapes.Cube["position"], shapes.Cube["uv"], shapes.Cube["normal"], index_data=shapes.Cube["indices"])
     pyramid = Model(shapes.SquarePyramid["position"], shapes.SquarePyramid["uv"], shapes.SquarePyramid["normal"], index_data=shapes.SquarePyramid["indices"])
     quad = Model(shapes.Square["position"], shapes.Square["uv"], shapes.Square["normal"], index_data=shapes.Square["indices"])
-    sphere = mesh_from_file("assets/sphere.off")[0]["mesh"]
+    sphere = mesh_from_file(r"CC3501-Tareas\assets\sphere.off")[0]["mesh"]
 
-    bricks = Texture("assets/bricks.jpg")
-    wall2 = Texture("assets/wall2.jpg")
+    bricks = Texture(r"CC3501-Tareas\assets\bricks.jpg")
+    wall2 = Texture(r"CC3501-Tareas\assets\wall2.jpg")
 
     graph = SceneGraph(controller)
 
@@ -97,7 +97,7 @@ if __name__ == "__main__":
                    rotation=[-np.pi/4, 0, 0],
                    light=DirectionalLight(diffuse = [1, 1, 1], specular = [0.25, 0.25, 0.25], ambient = [0.15, 0.15, 0.15]))
 
-    zorzal = mesh_from_file("assets/zorzal.obj")
+    zorzal = mesh_from_file(r"CC3501-Tareas\assets\zorzal.obj")
     graph.add_node("zorzal")
     for i in range(len(zorzal)):
         graph.add_node(zorzal[i]["id"],

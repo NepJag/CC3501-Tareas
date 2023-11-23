@@ -3,6 +3,7 @@ from OpenGL import GL
 import numpy as np
 import sys
 import os
+from Box2D import b2PolygonShape, b2World
 # No es necesario este bloque de código si se ejecuta desde la carpeta raíz del repositorio
 # v
 if sys.path[0] != "":
@@ -43,11 +44,11 @@ class Controller(pyglet.window.Window):
 if __name__ == "__main__":
 
     # La ventana
-    controller = Controller("Tarea 2", width=WIDTH, height=HEIGHT, resizable=True)
+    controller = Controller("Tarea 3", width=WIDTH, height=HEIGHT, resizable=True)
 
     controller.program_state["camera"] = OrbitCamera(5, "perspective")
     controller.program_state["camera"].phi = -np.pi/4
-    controller.program_state["camera"].theta = np.pi / 4
+    controller.program_state["camera"].theta = np.pi / 3
     camera = controller.program_state["camera"]
 
     color_mesh_pipeline = init_pipeline(
@@ -91,7 +92,6 @@ if __name__ == "__main__":
                           outerCutOff = 0.82
                    )
                 )
-
     graph.add_node("spotlight2",
             pipeline=[color_mesh_lit_pipeline, textured_mesh_lit_pipeline],
             position=[2, 1, -2],
@@ -104,7 +104,6 @@ if __name__ == "__main__":
                 outerCutOff = 0.82
                 )
             )
-
     graph.add_node("spotlight3",
             pipeline=[color_mesh_lit_pipeline, textured_mesh_lit_pipeline],
             position=[2, 1, 2],
@@ -117,7 +116,6 @@ if __name__ == "__main__":
                 outerCutOff = 0.82
                 )
             )
-
     graph.add_node("spotlight4",
             pipeline=[color_mesh_lit_pipeline, textured_mesh_lit_pipeline],
             position=[-2, 1, 2],
@@ -130,7 +128,6 @@ if __name__ == "__main__":
                 outerCutOff = 0.82
                 )
             )
-
     graph.add_node("floor",
                    mesh = quad,
                    pipeline = textured_mesh_lit_pipeline,
@@ -234,31 +231,6 @@ if __name__ == "__main__":
                     scale=[0.35, 0.3, 0.3],
                     material = wheel_mat,
                     )
-    
-    def update(dt):
-
-        # Uncomment for manual camera control
-        if controller.is_key_pressed(pyglet.window.key.A):
-            camera.phi -= dt
-        if controller.is_key_pressed(pyglet.window.key.D):
-            camera.phi += dt
-        if controller.is_key_pressed(pyglet.window.key.W):
-            camera.theta -= dt
-        if controller.is_key_pressed(pyglet.window.key.S):
-            camera.theta += dt
-        if controller.is_key_pressed(pyglet.window.key.Q):
-            camera.distance += dt
-        if controller.is_key_pressed(pyglet.window.key.E):
-            camera.distance -= dt
-        if controller.is_key_pressed(pyglet.window.key._1):
-            camera.type = "perspective"
-        if controller.is_key_pressed(pyglet.window.key._2):
-            camera.type = "orthographic"
-
-        # # Comment for manual camera control    
-        camera.phi += dt/2
-        
-        camera.update()
 
     cars = graph["Cars"]
 
@@ -287,33 +259,75 @@ if __name__ == "__main__":
                    scale = [50, 30, 1],
                    material = Material(shininess=64))
 
-    # On key press start animation
     @controller.event
     def on_key_press(symbol, modifiers):
         global target_pos, tween, selected_car
         
+        # Switch car
         if symbol == pyglet.window.key.SPACE:
             
+            # Animation
             target_pos = (cars["position"][0] - 6) % (-6 * n)
             if target_pos == -0:
                 target_pos = 0
         
+        # Select car
         elif symbol == pyglet.window.key.ENTER:
+
             i = int(np.absolute(cars["position"][0] // 6))
-            #print(i)
             selected_car_name = f"RB6_{i}"
             selected_car = graph[selected_car_name]
-            #print(selected_car)
-            play_graph.add_node(f"RB6_{i}", **selected_car)
-            play_graph.add_node(f"RB6_{i}_FW1", **graph[f"RB6_{i}_FW1"])
-            play_graph.add_node(f"RB6_{i}_FW2", **graph[f"RB6_{i}_FW2"])
-            play_graph.add_node(f"RB6_{i}_RW1", **graph[f"RB6_{i}_RW1"])
-            play_graph.add_node(f"RB6_{i}_RW2", **graph[f"RB6_{i}_RW2"])
+            
+            play_graph.add_node(f"RB6_{i}", 
+                                attach_to="root", 
+                                mesh= RB6,
+                                pipeline = color_mesh_lit_pipeline,
+                                position=[origin[0], origin[1], origin[2]],
+                                rotation=[-np.pi/2, 0, 0],
+                                scale=[1.5, 1.5, 1.5],
+                                material = Material(diffuse=colors[i], shininess=shininess[i]),
+                                )
+            play_graph.add_node(f"RB6_{i}_FW1", 
+                                attach_to="root",
+                                mesh= RB6_FW,
+                                pipeline = color_mesh_lit_pipeline,
+                                position=[0.4, 0.3, 0.9],
+                                rotation=[0, 0, 0],
+                                scale=[0.4, 0.4, 0.4],
+                                material = wheel_mat,
+                                )
+            play_graph.add_node(f"RB6_{i}_FW2",
+                                mesh= RB6_FW,
+                                pipeline = color_mesh_lit_pipeline,
+                                position=[-0.4, 0.3, 0.9],
+                                rotation=[0, np.pi, 0],
+                                scale=[0.4, 0.4, 0.4],
+                                material = wheel_mat,
+                                )
+            play_graph.add_node(f"RB6_{i}_RW1",
+                                mesh= RB6_RW,
+                                pipeline = color_mesh_lit_pipeline,
+                                position=[0.4, 0.3, -1],
+                                scale=[0.45, 0.4, 0.4],
+                                material = wheel_mat,
+                                )
+            play_graph.add_node(f"RB6_{i}_RW2",
+                                mesh= RB6_RW,
+                                pipeline = color_mesh_lit_pipeline,
+                                position=[-0.4, 0.3, -1],
+                                rotation=[0, np.pi, 0],
+                                scale=[0.45, 0.4, 0.4],
+                                material = wheel_mat,
+                                )
+            camera.distance = 3
+            camera.phi = np.pi
+            camera.theta = np.pi/3
             
     def update(dt):
         
         global tween, target_pos
         
+        # Animation
         if target_pos is not None:
             tween = min(tween + dt, duration) / duration
             t = tween
@@ -322,19 +336,20 @@ if __name__ == "__main__":
             if tween == 1:
                 target_pos = None
                 tween = 0
+
+        if selected_car is None:
+            camera.phi += dt/2            
         
-        camera.phi += dt/2
-        
-        camera.update()                
+        camera.update()
 
     @controller.event
     def on_resize(width, height):
-        controller.program_state["camera"].resize(width, height)
+        camera.resize(width, height)
 
     @controller.event
     def on_draw():
         controller.clear()
-        if selected_car:
+        if selected_car is not None:
             controller.clear()
             play_graph.draw()
         else:
