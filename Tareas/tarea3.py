@@ -50,20 +50,20 @@ if __name__ == "__main__":
     controller.program_state["camera"].phi = -np.pi/4
     controller.program_state["camera"].theta = np.pi / 3
     camera = controller.program_state["camera"]
-
-    color_mesh_pipeline = init_pipeline(
-        get_path("auxiliares/shaders/color_mesh.vert"),
-        get_path("auxiliares/shaders/color_mesh.frag"))
-    
-    textured_mesh_pipeline = init_pipeline(
-        get_path("auxiliares/shaders/textured_mesh.vert"),
-        get_path("auxiliares/shaders/textured_mesh.frag"))
     
     color_mesh_lit_pipeline = init_pipeline(
         get_path("auxiliares/shaders/color_mesh_lit.vert"),
         get_path("auxiliares/shaders/color_mesh_lit.frag"))
     
     textured_mesh_lit_pipeline = init_pipeline(
+        get_path("auxiliares/shaders/textured_mesh_lit.vert"),
+        get_path("auxiliares/shaders/textured_mesh_lit.frag"))
+    
+    color_mesh_lit_pipeline2 = init_pipeline(
+        get_path("auxiliares/shaders/color_mesh_lit.vert"),
+        get_path("auxiliares/shaders/color_mesh_lit.frag"))
+    
+    textured_mesh_lit_pipeline2 = init_pipeline(
         get_path("auxiliares/shaders/textured_mesh_lit.vert"),
         get_path("auxiliares/shaders/textured_mesh_lit.frag"))
     
@@ -247,13 +247,13 @@ if __name__ == "__main__":
     selected_car = None
     play_graph = SceneGraph(controller)
     play_graph.add_node("sun",
-                    pipeline=[color_mesh_lit_pipeline, textured_mesh_lit_pipeline],
+                    pipeline=[color_mesh_lit_pipeline2, textured_mesh_lit_pipeline2],
                     light=DirectionalLight(),
                     rotation=[-np.pi/4, 0, 0],
                    )
     play_graph.add_node("floor",
                    mesh = quad,
-                   pipeline = textured_mesh_lit_pipeline,
+                   pipeline = textured_mesh_lit_pipeline2,
                    rotation = [-np.pi/2, 0, 0],
                    texture=None,
                    scale = [50, 30, 1],
@@ -275,13 +275,11 @@ if __name__ == "__main__":
         elif symbol == pyglet.window.key.ENTER:
 
             i = int(np.absolute(cars["position"][0] // 6))
-            selected_car_name = f"RB6_{i}"
-            selected_car = graph[selected_car_name]
-            
-            play_graph.add_node(f"RB6_{i}", 
+            selected_car = f"RB6_{i}"
+            play_graph.add_node(selected_car, 
                                 attach_to="root", 
                                 mesh= RB6,
-                                pipeline = color_mesh_lit_pipeline,
+                                pipeline = color_mesh_lit_pipeline2,
                                 position=[origin[0], origin[1], origin[2]],
                                 rotation=[-np.pi/2, 0, 0],
                                 scale=[1.5, 1.5, 1.5],
@@ -290,7 +288,7 @@ if __name__ == "__main__":
             play_graph.add_node(f"RB6_{i}_FW1", 
                                 attach_to="root",
                                 mesh= RB6_FW,
-                                pipeline = color_mesh_lit_pipeline,
+                                pipeline = color_mesh_lit_pipeline2,
                                 position=[0.4, 0.3, 0.9],
                                 rotation=[0, 0, 0],
                                 scale=[0.4, 0.4, 0.4],
@@ -298,7 +296,7 @@ if __name__ == "__main__":
                                 )
             play_graph.add_node(f"RB6_{i}_FW2",
                                 mesh= RB6_FW,
-                                pipeline = color_mesh_lit_pipeline,
+                                pipeline = color_mesh_lit_pipeline2,
                                 position=[-0.4, 0.3, 0.9],
                                 rotation=[0, np.pi, 0],
                                 scale=[0.4, 0.4, 0.4],
@@ -306,14 +304,14 @@ if __name__ == "__main__":
                                 )
             play_graph.add_node(f"RB6_{i}_RW1",
                                 mesh= RB6_RW,
-                                pipeline = color_mesh_lit_pipeline,
+                                pipeline = color_mesh_lit_pipeline2,
                                 position=[0.4, 0.3, -1],
                                 scale=[0.45, 0.4, 0.4],
                                 material = wheel_mat,
                                 )
             play_graph.add_node(f"RB6_{i}_RW2",
                                 mesh= RB6_RW,
-                                pipeline = color_mesh_lit_pipeline,
+                                pipeline = color_mesh_lit_pipeline2,
                                 position=[-0.4, 0.3, -1],
                                 rotation=[0, np.pi, 0],
                                 scale=[0.45, 0.4, 0.4],
@@ -350,6 +348,7 @@ if __name__ == "__main__":
     def on_draw():
         controller.clear()
         if selected_car is not None:
+            GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT | GL.GL_STENCIL_BUFFER_BIT)
             controller.clear()
             play_graph.draw()
         else:
