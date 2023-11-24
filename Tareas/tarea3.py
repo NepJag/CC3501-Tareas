@@ -13,22 +13,29 @@ sys.path.append('../../')
 sys.path.append(os.path.dirname(os.path.dirname((os.path.abspath(__file__)))))
 # No es necesario este bloque de código si se ejecuta desde la carpeta raíz del repositorio
 
+import grafica.transformations as tr
 import auxiliares.utils.shapes as shapes
 from auxiliares.utils.camera import OrbitCamera
 from auxiliares.utils.scene_graph import SceneGraph
 from auxiliares.utils.drawables import Model, Texture, DirectionalLight, Material, SpotLight
 from auxiliares.utils.helpers import init_pipeline, mesh_from_file, get_path
 
-WIDTH, HEIGHT = 800, 800
+WIDTH, HEIGHT = 1280, 720
 
 class Controller(pyglet.window.Window):
     def __init__(self, title, *args, **kargs):
         super().__init__(*args, **kargs)
         self.set_minimum_size(240, 240) # Evita error cuando se redimensiona a 0
         self.set_caption(title)
-        self.key_handler = pyglet.window.key.KeyStateHandler()
-        self.push_handlers(self.key_handler)
-        self.program_state = { "total_time": 0.0, "camera": None }
+        self.keys_state = {}
+        self.program_state = { 
+            "total_time": 0.0, 
+            "camera": None ,
+            "bodies": {},
+            "world": None,
+            # parámetros para el integrador
+            "vel_iters": 6,
+            "pos_iters": 2 }
         self.init()
 
     def init(self):
@@ -39,7 +46,14 @@ class Controller(pyglet.window.Window):
         GL.glFrontFace(GL.GL_CCW)
 
     def is_key_pressed(self, key):
-        return self.key_handler[key]
+        return self.keys_state.get(key, False)
+
+    def on_key_press(self, symbol, modifiers):
+        controller.keys_state[symbol] = True
+        super().on_key_press(symbol, modifiers)
+
+    def on_key_release(self, symbol, modifiers):
+        controller.keys_state[symbol] = False
     
 if __name__ == "__main__":
 
@@ -48,7 +62,7 @@ if __name__ == "__main__":
 
     controller.program_state["camera"] = OrbitCamera(5, "perspective")
     controller.program_state["camera"].phi = -np.pi/4
-    controller.program_state["camera"].theta = np.pi / 3
+    controller.program_state["camera"].theta = np.pi/3
     camera = controller.program_state["camera"]
     
     color_mesh_lit_pipeline = init_pipeline(
@@ -258,6 +272,22 @@ if __name__ == "__main__":
                    texture=None,
                    scale = [50, 30, 1],
                    material = Material(shininess=64))
+    
+    world = b2World(gravity=(0, 0))
+    controller.program_state["world"] = world
+
+    chassis = world.CreateDynamicBody(position=(0, 0), angle=0, linearDamping=0.75, angularDamping=0.5)
+    chassis.CreatePolygonFixture(box=(0.25, 0.5), density=4, friction=0.3)
+    controller.program_state["bodies"]["chassis"] = chassis
+
+    # 4 wheels
+    wheels = []
+    for i in range(4):
+        wheel = world.CreateDynamicBody(position=(0, 0), angle=0, linearDamping=0.5, angularDamping=0.5)
+        wheel.CreatePolygonFixture(box=(0.25, 0.25), density=1, friction=0.3)
+        controller.program_state["bodies"][f"wheel{i}"] = wheel
+        wheels.append(wheel)
+ 
 
     @controller.event
     def on_key_press(symbol, modifiers):
@@ -320,9 +350,30 @@ if __name__ == "__main__":
             camera.distance = 3
             camera.phi = np.pi
             camera.theta = np.pi/3
-            
+    
+    def update_world(dt):
+        controller.program_state["total_time"] += dt
+        controller.program_state["world"].Step(dt, controller.program_state["vel_iters"], controller.program_state["pos_iters"])
+
+        play_graph[selected_car]["position"][0] = chassis.position[0]
+        play_graph[selected_car]["position"][2] = chassis.position[1]
+        #print(play_graph[selected_car]["rotation"], -chassis.angle)
+        play_graph[selected_car]["rotation"][1] = -chassis.angle
+        #print(play_graph[selected_car]["rotation"], -chassis.angle)
+
+        for i in range(2):
+            play_graph[selected_car+f"_FW{i+1}"]["position"][0] = wheels[i].position[0]
+            play_graph[selected_car+f"_FW{i+1}"]["position"][2] = wheels[i].position[1]
+            play_graph[selected_car+f"_FW{i+1}"]["rotation"][1] = -wheels[i].angle
+
+            play_graph[selected_car+f"_RW{i+1}"]["position"][0] = wheels[i+2].position[0]
+            play_graph[selected_car+f"_RW{i+1}"]["position"][2] = wheels[i+2].position[1]
+            play_graph[selected_car+f"_RW{i+1}"]["rotation"][1] = -wheels[i+2].angle
+        #          
     def update(dt):
-        
+
+        controllable = controller.program_state["bodies"]["chassis"]
+
         global tween, target_pos
         
         # Animation
@@ -338,6 +389,35 @@ if __name__ == "__main__":
         if selected_car is None:
             camera.phi += dt/2            
         
+        elif selected_car is not None:
+            update_world(dt)
+            if controller.is_key_pressed(pyglet.window.key.W):
+                forward = play_graph.get_forward(selected_car)
+                print(forward)
+                #controllable["position"][0] += graph.get_forward("locomotive")[0] * 2*dt
+                #controllable["position"][2] += graph.get_forward("locomotive")[2] * 2*dt
+                chassis.ApplyForceToCenter((forward[0]*10, forward[2]*10), True)
+
+
+            if controller.is_key_pressed(pyglet.window.key.S):
+                forward = play_graph.get_forward(selected_car)
+                #controllable["position"][0] -= graph.get_forward("locomotive")[0] * 2*dt
+                #controllable["position"][2] -= graph.get_forward("locomotive")[2] * 2*dt
+                chassis.ApplyForceToCenter((-forward[0]*10, -forward[2]*10), True)
+
+            if controller.is_key_pressed(pyglet.window.key.D):
+                #controllable["rotation"][1] -= 2*dt
+                chassis.angularVelocity = 1
+            if controller.is_key_pressed(pyglet.window.key.A):
+                #controllable["rotation"][1] += 2*dt
+                chassis.angularVelocity = -1
+            
+            if controller.is_key_pressed(pyglet.window.key._1):
+                camera.type = "perspective"
+            if controller.is_key_pressed(pyglet.window.key._2):
+                camera.type = "orthographic"
+
+
         camera.update()
 
     @controller.event

@@ -1,7 +1,7 @@
 import pyglet
 from OpenGL import GL
 import numpy as np
-import sys
+import sys, os
 from Box2D import b2World
 
 # No es necesario este bloque de código si se ejecuta desde la carpeta raíz del repositorio
@@ -10,6 +10,7 @@ if sys.path[0] != "":
     sys.path.insert(0, "")
 sys.path.append('../../')
 # ^
+sys.path.append(os.path.dirname(os.path.dirname((os.path.abspath(__file__)))))
 # No es necesario este bloque de código si se ejecuta desde la carpeta raíz del repositorio
 
 import auxiliares.utils.shapes as shapes
