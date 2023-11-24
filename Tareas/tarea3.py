@@ -146,7 +146,7 @@ if __name__ == "__main__":
                    mesh = quad,
                    pipeline = textured_mesh_lit_pipeline,
                    rotation = [-np.pi/2, 0, 0],
-                   texture=Texture(r"CC3501-Tareas\Tareas\black-stones-tiled-floor.jpg",
+                   texture=Texture(get_path("Tareas/black-stones-tiled-floor.jpg"),
                                     sWrapMode=GL.GL_REPEAT, 
                                     tWrapMode=GL.GL_REPEAT),
                    scale = [50, 30, 1],
@@ -156,7 +156,7 @@ if __name__ == "__main__":
                    pipeline = textured_mesh_lit_pipeline,
                    position= [0, 2.5, -15],
                    rotation = [0, 0, 0],
-                   texture=Texture(r"CC3501-Tareas\Tareas\wall1.jpg"),
+                   texture=Texture(get_path("Tareas/wall1.jpg")),
                    scale = [50, 5, 1],
                    material = Material(shininess=64),
                    )
@@ -165,7 +165,7 @@ if __name__ == "__main__":
                    pipeline = textured_mesh_lit_pipeline,
                    position= [0, 2.5, 15],
                    rotation = [0, np.pi, 0],
-                   texture=Texture(r"CC3501-Tareas\Tareas\wall1.jpg"),
+                   texture=Texture(get_path("Tareas/wall1.jpg")),
                    scale = [50, 5, 1],
                    material = Material(shininess=64),
                    )
