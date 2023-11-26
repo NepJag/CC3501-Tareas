@@ -15,7 +15,7 @@ sys.path.append(os.path.dirname(os.path.dirname((os.path.abspath(__file__)))))
 
 import grafica.transformations as tr
 import auxiliares.utils.shapes as shapes
-from auxiliares.utils.camera import OrbitCamera
+from auxiliares.utils.camera import OrbitCamera, FreeCamera
 from auxiliares.utils.scene_graph import SceneGraph
 from auxiliares.utils.drawables import Model, Texture, DirectionalLight, Material, SpotLight
 from auxiliares.utils.helpers import init_pipeline, mesh_from_file, get_path
@@ -374,9 +374,9 @@ if __name__ == "__main__":
                                 scale=[0.45, 0.4, 0.4],
                                 material = wheel_mat,
                                 )
-            camera.distance = 5
-            camera.phi = np.pi
-            camera.theta = np.pi/3
+            
+            controller.program_state["camera"] = FreeCamera([0, 0, 0], "perspective")
+            controller.program_state["camera"].yaw = np.pi/3
     
     def update_world(dt):
         controller.program_state["total_time"] += dt
@@ -394,9 +394,10 @@ if __name__ == "__main__":
             play_graph[selected_car+f"_RW{i+1}"]["position"][0] = wheels[i+2].position[0]
             play_graph[selected_car+f"_RW{i+1}"]["position"][2] = wheels[i+2].position[1]
             play_graph[selected_car+f"_RW{i+1}"]["rotation"][1] = -wheels[i+2].angle
-        #          
+
     def update(dt):
 
+        camera = controller.program_state["camera"]
         controllable = controller.program_state["bodies"]["chassis"]
 
         global tween, target_pos
@@ -418,17 +419,17 @@ if __name__ == "__main__":
             update_world(dt)
             if controller.is_key_pressed(pyglet.window.key.W):
                 forward = play_graph.get_forward(selected_car)
-                chassis.ApplyForceToCenter((forward[0]*10, forward[2]*10), True)
+                controllable.ApplyForceToCenter((forward[0]*10, forward[2]*10), True)
 
             if controller.is_key_pressed(pyglet.window.key.S):
                 forward = play_graph.get_forward(selected_car)
-                chassis.ApplyForceToCenter((-forward[0]*10, -forward[2]*10), True)
+                controllable.ApplyForceToCenter((-forward[0]*10, -forward[2]*10), True)
 
             if controller.is_key_pressed(pyglet.window.key.D):
-                chassis.angularVelocity = 1
+                controllable.angularVelocity = 1
 
             if controller.is_key_pressed(pyglet.window.key.A):
-                chassis.angularVelocity = -1
+                controllable.angularVelocity = -1
             
             if controller.is_key_pressed(pyglet.window.key._1):
                 camera.type = "perspective"
@@ -436,8 +437,12 @@ if __name__ == "__main__":
             if controller.is_key_pressed(pyglet.window.key._2):
                 camera.type = "orthographic"
 
-            camera.position[2] = play_graph[selected_car]["position"][2]
-            camera.position[1] = play_graph[selected_car]["position"][1]
+            camera.position[0] = controllable.position[0] + 4 * np.sin(controllable.angle)
+            camera.position[1] = 2
+            camera.position[2] = controllable.position[1] - 4 * np.cos(controllable.angle)
+            camera.yaw = controllable.angle + np.pi / 2
+
+            print(camera.position)
 
         camera.update()
 
