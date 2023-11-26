@@ -311,17 +311,24 @@ if __name__ == "__main__":
     world.CreateWheelJoint(bodyA=chassis, bodyB=wheels[3], 
                            anchor=wheel_anchors[3], collideConnected=True)                                                      
 
+    # Free camera position (default)
+    follow_distance = 4
+    follow_height = 2
+    follow_pitch = 0
+
     @controller.event
     def on_key_press(symbol, modifiers):
+
         global target_pos, tween, selected_car
-        
+        global follow_distance, follow_height, follow_pitch
+
         # Switch car
         if symbol == pyglet.window.key.SPACE:
             
             # Animation
             target_pos = (cars["position"][0] - 6) % (-6 * n)
             if target_pos == -0:
-                target_pos = 0
+                target_pos = 0             
         
         # Select car
         elif symbol == pyglet.window.key.ENTER:
@@ -377,6 +384,18 @@ if __name__ == "__main__":
             
             controller.program_state["camera"] = FreeCamera([0, 0, 0], "perspective")
             controller.program_state["camera"].yaw = np.pi/3
+
+         # Default camera (behind)
+        elif symbol == pyglet.window.key._1 and selected_car:
+            follow_distance = 4
+            follow_height = 2
+            follow_pitch = 0
+            
+        # Top view camera (orthographic)                
+        elif symbol == pyglet.window.key._2 and selected_car:
+            follow_distance = 2
+            follow_height = 10
+            follow_pitch = -np.pi/4
     
     def update_world(dt):
         controller.program_state["total_time"] += dt
@@ -401,6 +420,7 @@ if __name__ == "__main__":
         controllable = controller.program_state["bodies"]["chassis"]
 
         global tween, target_pos
+        global follow_distance, follow_height, follow_pitch
         
         # Animation
         if target_pos is not None:
@@ -429,20 +449,13 @@ if __name__ == "__main__":
                 controllable.angularVelocity = 1
 
             if controller.is_key_pressed(pyglet.window.key.A):
-                controllable.angularVelocity = -1
-            
-            if controller.is_key_pressed(pyglet.window.key._1):
-                camera.type = "perspective"
-                
-            if controller.is_key_pressed(pyglet.window.key._2):
-                camera.type = "orthographic"
+                controllable.angularVelocity = -1             
 
-            camera.position[0] = controllable.position[0] + 4 * np.sin(controllable.angle)
-            camera.position[1] = 2
-            camera.position[2] = controllable.position[1] - 4 * np.cos(controllable.angle)
+            camera.position[0] = controllable.position[0] + follow_distance * np.sin(controllable.angle)
+            camera.position[1] = follow_height
+            camera.position[2] = controllable.position[1] - follow_distance * np.cos(controllable.angle)
             camera.yaw = controllable.angle + np.pi / 2
-
-            print(camera.position)
+            camera.pitch = follow_pitch
 
         camera.update()
 
