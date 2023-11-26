@@ -20,7 +20,7 @@ from auxiliares.utils.scene_graph import SceneGraph
 from auxiliares.utils.drawables import Model, Texture, DirectionalLight, Material, SpotLight
 from auxiliares.utils.helpers import init_pipeline, mesh_from_file, get_path
 
-WIDTH, HEIGHT = 1280, 720
+WIDTH, HEIGHT = 600, 600
 
 class Controller(pyglet.window.Window):
     def __init__(self, title, *args, **kargs):
@@ -276,18 +276,40 @@ if __name__ == "__main__":
     world = b2World(gravity=(0, 0))
     controller.program_state["world"] = world
 
-    chassis = world.CreateDynamicBody(position=(0, 0), angle=0, linearDamping=0.75, angularDamping=0.5)
-    chassis.CreatePolygonFixture(box=(0.25, 0.5), density=4, friction=0.3)
+    chassis = world.CreateDynamicBody(position=(0, 0), angle=0, linearDamping=0.75, angularDamping=3.5)
+    chassis.CreatePolygonFixture(box=(0.25, 0.5), density=1, friction=0.3)
     controller.program_state["bodies"]["chassis"] = chassis
 
     # 4 wheels
     wheels = []
+
+    wheel_pos = [(1.0, 0.5),
+                 (-1.0, 0.5),
+                 (1.0, -0.5),
+                 (-1.0, -0.5)
+                ]
+    
     for i in range(4):
-        wheel = world.CreateDynamicBody(position=(0, 0), angle=0, linearDamping=0.5, angularDamping=0.5)
+        wheel = world.CreateDynamicBody(position=wheel_pos[i], angle=0, linearDamping=0.5, angularDamping=0.5)
         wheel.CreatePolygonFixture(box=(0.25, 0.25), density=1, friction=0.3)
         controller.program_state["bodies"][f"wheel{i}"] = wheel
         wheels.append(wheel)
- 
+    
+    # [0.4, 0.3, 0.9], [-0.4, 0.3, 0.9], [0.4, 0.3, -1], [-0.4, 0.3, -1]
+
+    wheel_anchors = [(1.0, 0.5), 
+                     (-1.0, 0.5),
+                     (1.0, -0.5),
+                     (-1.0, -0.5)]
+
+    world.CreateWheelJoint(bodyA=chassis, bodyB=wheels[0], 
+                           anchor=wheel_anchors[0], collideConnected=True)
+    world.CreateWheelJoint(bodyA=chassis, bodyB=wheels[1], 
+                           anchor=wheel_anchors[1], collideConnected=True)
+    world.CreateWheelJoint(bodyA=chassis, bodyB=wheels[2], 
+                           anchor=wheel_anchors[2], collideConnected=True)
+    world.CreateWheelJoint(bodyA=chassis, bodyB=wheels[3], 
+                           anchor=wheel_anchors[3], collideConnected=True)                                                      
 
     @controller.event
     def on_key_press(symbol, modifiers):
@@ -306,11 +328,12 @@ if __name__ == "__main__":
 
             i = int(np.absolute(cars["position"][0] // 6))
             selected_car = f"RB6_{i}"
-            play_graph.add_node(selected_car, 
-                                attach_to="root", 
+            play_graph.add_node(selected_car)
+            play_graph.add_node("visual_RB6", 
+                                attach_to=selected_car, 
                                 mesh= RB6,
                                 pipeline = color_mesh_lit_pipeline2,
-                                position=[origin[0], origin[1], origin[2]],
+                                position=[0.0, 0.3, 0.0],
                                 rotation=[-np.pi/2, 0, 0],
                                 scale=[1.5, 1.5, 1.5],
                                 material = Material(diffuse=colors[i], shininess=shininess[i]),
@@ -319,15 +342,17 @@ if __name__ == "__main__":
                                 attach_to="root",
                                 mesh= RB6_FW,
                                 pipeline = color_mesh_lit_pipeline2,
-                                position=[0.4, 0.3, 0.9],
+                                position=[0.0, 0.3, 0.0],
                                 rotation=[0, 0, 0],
                                 scale=[0.4, 0.4, 0.4],
                                 material = wheel_mat,
                                 )
-            play_graph.add_node(f"RB6_{i}_FW2",
+            play_graph.add_node(f"RB6_{i}_FW2")
+            play_graph.add_node("visual_RB6_FW2",
                                 mesh= RB6_FW,
+                                attach_to=f"RB6_{i}_FW2",
                                 pipeline = color_mesh_lit_pipeline2,
-                                position=[-0.4, 0.3, 0.9],
+                                position=[0.0, 0.3, 0.0],
                                 rotation=[0, np.pi, 0],
                                 scale=[0.4, 0.4, 0.4],
                                 material = wheel_mat,
@@ -335,19 +360,21 @@ if __name__ == "__main__":
             play_graph.add_node(f"RB6_{i}_RW1",
                                 mesh= RB6_RW,
                                 pipeline = color_mesh_lit_pipeline2,
-                                position=[0.4, 0.3, -1],
+                                position=[0.0, 0.3, 0.0],
                                 scale=[0.45, 0.4, 0.4],
                                 material = wheel_mat,
                                 )
-            play_graph.add_node(f"RB6_{i}_RW2",
+            play_graph.add_node(f"RB6_{i}_RW2")
+            play_graph.add_node("visual_RB6_RW2",
+                                attach_to=f"RB6_{i}_RW2",
                                 mesh= RB6_RW,
                                 pipeline = color_mesh_lit_pipeline2,
-                                position=[-0.4, 0.3, -1],
+                                position=[0.0, 0.3, 0.0],
                                 rotation=[0, np.pi, 0],
                                 scale=[0.45, 0.4, 0.4],
                                 material = wheel_mat,
                                 )
-            camera.distance = 3
+            camera.distance = 5
             camera.phi = np.pi
             camera.theta = np.pi/3
     
@@ -357,9 +384,7 @@ if __name__ == "__main__":
 
         play_graph[selected_car]["position"][0] = chassis.position[0]
         play_graph[selected_car]["position"][2] = chassis.position[1]
-        #print(play_graph[selected_car]["rotation"], -chassis.angle)
         play_graph[selected_car]["rotation"][1] = -chassis.angle
-        #print(play_graph[selected_car]["rotation"], -chassis.angle)
 
         for i in range(2):
             play_graph[selected_car+f"_FW{i+1}"]["position"][0] = wheels[i].position[0]
@@ -393,30 +418,26 @@ if __name__ == "__main__":
             update_world(dt)
             if controller.is_key_pressed(pyglet.window.key.W):
                 forward = play_graph.get_forward(selected_car)
-                print(forward)
-                #controllable["position"][0] += graph.get_forward("locomotive")[0] * 2*dt
-                #controllable["position"][2] += graph.get_forward("locomotive")[2] * 2*dt
                 chassis.ApplyForceToCenter((forward[0]*10, forward[2]*10), True)
-
 
             if controller.is_key_pressed(pyglet.window.key.S):
                 forward = play_graph.get_forward(selected_car)
-                #controllable["position"][0] -= graph.get_forward("locomotive")[0] * 2*dt
-                #controllable["position"][2] -= graph.get_forward("locomotive")[2] * 2*dt
                 chassis.ApplyForceToCenter((-forward[0]*10, -forward[2]*10), True)
 
             if controller.is_key_pressed(pyglet.window.key.D):
-                #controllable["rotation"][1] -= 2*dt
                 chassis.angularVelocity = 1
+
             if controller.is_key_pressed(pyglet.window.key.A):
-                #controllable["rotation"][1] += 2*dt
                 chassis.angularVelocity = -1
             
             if controller.is_key_pressed(pyglet.window.key._1):
                 camera.type = "perspective"
+                
             if controller.is_key_pressed(pyglet.window.key._2):
                 camera.type = "orthographic"
 
+            camera.position[2] = play_graph[selected_car]["position"][2]
+            camera.position[1] = play_graph[selected_car]["position"][1]
 
         camera.update()
 
@@ -428,7 +449,6 @@ if __name__ == "__main__":
     def on_draw():
         controller.clear()
         if selected_car is not None:
-            GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT | GL.GL_STENCIL_BUFFER_BIT)
             controller.clear()
             play_graph.draw()
         else:
