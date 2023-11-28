@@ -269,47 +269,52 @@ if __name__ == "__main__":
                    mesh = quad,
                    pipeline = textured_mesh_lit_pipeline2,
                    rotation = [-np.pi/2, 0, 0],
-                   texture=None,
-                   scale = [50, 30, 1],
-                   material = Material(shininess=64))
+                   texture=Texture(get_path("Tareas/RaceTrack2.jpg")),
+                   scale = [70, 70, 1],
+                   material = Material(shininess=2*16))
     
     world = b2World(gravity=(0, 0))
     controller.program_state["world"] = world
 
-    chassis = world.CreateDynamicBody(position=(0, 0), angle=0, linearDamping=0.75, angularDamping=3.5)
-    chassis.CreatePolygonFixture(box=(0.25, 0.5), density=1, friction=0.3)
+    chassis = world.CreateDynamicBody(position=(0, 0), angle=0, linearDamping=0.75, angularDamping=0.5)
+    chassis.CreatePolygonFixture(box=(0.2, 1.2), density=8, friction=0.3)
     controller.program_state["bodies"]["chassis"] = chassis
 
     # 4 wheels
     wheels = []
 
-    wheel_pos = [(1.0, 0.5),
-                 (-1.0, 0.5),
-                 (1.0, -0.5),
-                 (-1.0, -0.5)
+    wheel_pos = [(0.5, 0.9),
+                 (-0.5, 0.9),
+                 (0.5, -1.0),
+                 (-0.5, -1.0)
                 ]
     
     for i in range(4):
-        wheel = world.CreateDynamicBody(position=wheel_pos[i], angle=0, linearDamping=0.5, angularDamping=0.5)
-        wheel.CreatePolygonFixture(box=(0.25, 0.25), density=1, friction=0.3)
+        wheel = world.CreateDynamicBody(position=wheel_pos[i], angle=0, linearDamping=0.5, angularDamping=10.5)
+        wheel.CreatePolygonFixture(box=(0.2, 0.3), density=1, friction=30)
         controller.program_state["bodies"][f"wheel{i}"] = wheel
         wheels.append(wheel)
     
     # [0.4, 0.3, 0.9], [-0.4, 0.3, 0.9], [0.4, 0.3, -1], [-0.4, 0.3, -1]
 
-    wheel_anchors = [(1.0, 0.5), 
-                     (-1.0, 0.5),
+    wheel_anchors = [(0.5, 0.7), 
+                     (-0.5, 0.9),
                      (1.0, -0.5),
                      (-1.0, -0.5)]
 
-    world.CreateWheelJoint(bodyA=chassis, bodyB=wheels[0], 
-                           anchor=wheel_anchors[0], collideConnected=True)
-    world.CreateWheelJoint(bodyA=chassis, bodyB=wheels[1], 
-                           anchor=wheel_anchors[1], collideConnected=True)
-    world.CreateWheelJoint(bodyA=chassis, bodyB=wheels[2], 
-                           anchor=wheel_anchors[2], collideConnected=True)
-    world.CreateWheelJoint(bodyA=chassis, bodyB=wheels[3], 
-                           anchor=wheel_anchors[3], collideConnected=True)                                                      
+    world.CreateWheelJoint(bodyA=chassis, bodyB=wheels[0],              # FW1
+                           anchor=wheel_pos[0], collideConnected=True,
+                           axis=(0, 1))
+    world.CreateWheelJoint(bodyA=chassis, bodyB=wheels[1],              # FW2
+                           anchor=wheel_pos[1], collideConnected=True,
+                           axis=(0, 1))
+    
+    world.CreateWheelJoint(bodyA=chassis, bodyB=wheels[2],              # RW1
+                           anchor=wheel_pos[2], collideConnected=True,
+                           axis=(1, 0), motorSpeed=0, maxMotorTorque=20, enableMotor=True)
+    world.CreateWheelJoint(bodyA=chassis, bodyB=wheels[3],              # RW2
+                           anchor=wheel_pos[3], collideConnected=True,
+                           axis=(1, 0), motorSpeed=0, maxMotorTorque=20, enableMotor=True)                                                      
 
     # Free camera position (default)
     follow_distance = 4
@@ -422,6 +427,11 @@ if __name__ == "__main__":
         global tween, target_pos
         global follow_distance, follow_height, follow_pitch
         
+        FW1 = controller.program_state["bodies"]["wheel0"]
+        FW2 = controller.program_state["bodies"]["wheel1"]
+        RW1 = controller.program_state["bodies"]["wheel2"]
+        RW2 = controller.program_state["bodies"]["wheel3"]
+
         # Animation
         if target_pos is not None:
             tween = min(tween + dt, duration) / duration
@@ -437,19 +447,36 @@ if __name__ == "__main__":
         
         elif selected_car is not None:
             update_world(dt)
+            forward_RW1 = play_graph.get_forward(selected_car+f"_RW1")
+            forward_RW2 = play_graph.get_forward(selected_car+f"_RW2")
+            forward_FW1 = play_graph.get_forward(selected_car+f"_FW1")
+            forward_FW2 = play_graph.get_forward(selected_car+f"_FW2")
             if controller.is_key_pressed(pyglet.window.key.W):
-                forward = play_graph.get_forward(selected_car)
-                controllable.ApplyForceToCenter((forward[0]*10, forward[2]*10), True)
+                RW1.ApplyForceToCenter((forward_RW1[0]*10, forward_RW1[2]*10), True)
+                RW2.ApplyForceToCenter((forward_RW2[0]*10, forward_RW2[2]*10), True)
+                FW1.ApplyForceToCenter((forward_FW1[0]*5, forward_FW1[2]*5), True)
+                FW2.ApplyForceToCenter((forward_FW2[0]*5, forward_FW2[2]*5), True)
 
             if controller.is_key_pressed(pyglet.window.key.S):
-                forward = play_graph.get_forward(selected_car)
-                controllable.ApplyForceToCenter((-forward[0]*10, -forward[2]*10), True)
+                RW1.ApplyForceToCenter((-forward_RW1[0]*10, -forward_RW1[2]*10), True)
+                RW2.ApplyForceToCenter((-forward_RW2[0]*10, -forward_RW2[2]*10), True)
+                FW1.ApplyForceToCenter((-forward_FW1[0]*5, -forward_FW1[2]*5), True)
+                FW2.ApplyForceToCenter((-forward_FW2[0]*5, -forward_FW2[2]*5), True)
 
             if controller.is_key_pressed(pyglet.window.key.D):
-                controllable.angularVelocity = 1
+                #controllable.angularVelocity = 1
+                print(FW1.angle, FW2.angle)
+                FW1.ApplyTorque(1.0, True)
+                FW2.ApplyTorque(1.0, True)
+                FW1.ApplyForceToCenter((0.9065, 0), True)
+                FW2.ApplyForceToCenter((0.9065, 0), True)
 
             if controller.is_key_pressed(pyglet.window.key.A):
-                controllable.angularVelocity = -1             
+                #controllable.angularVelocity = -1
+                FW1.ApplyTorque(-1.0, True)
+                FW2.ApplyTorque(-1.0, True)
+                FW1.ApplyForceToCenter((-0.9065, 0), True)
+                FW2.ApplyForceToCenter((-0.9065, 0), True)
 
             camera.position[0] = controllable.position[0] + follow_distance * np.sin(controllable.angle)
             camera.position[1] = follow_height
@@ -461,7 +488,7 @@ if __name__ == "__main__":
 
     @controller.event
     def on_resize(width, height):
-        camera.resize(width, height)
+        controller.program_state["camera"].resize(width, height)
 
     @controller.event
     def on_draw():
