@@ -422,16 +422,15 @@ if __name__ == "__main__":
     def update(dt):
 
         camera = controller.program_state["camera"]
-        
         controllable = controller.program_state["bodies"]["chassis"]
-        FW1 = controller.program_state["bodies"]["wheel0"]
-        FW2 = controller.program_state["bodies"]["wheel1"]
-        RW1 = controller.program_state["bodies"]["wheel2"]
-        RW2 = controller.program_state["bodies"]["wheel3"]
 
         global tween, target_pos
         global follow_distance, follow_height, follow_pitch
         
+        FW1 = controller.program_state["bodies"]["wheel0"]
+        FW2 = controller.program_state["bodies"]["wheel1"]
+        RW1 = controller.program_state["bodies"]["wheel2"]
+        RW2 = controller.program_state["bodies"]["wheel3"]
 
         # Animation
         if target_pos is not None:
@@ -454,16 +453,12 @@ if __name__ == "__main__":
             forward_FW2 = play_graph.get_forward(selected_car+f"_FW2")
 
             # get lateral velocity
-            wheel_sideways_direction0 = controller.program_state["bodies"]["wheel0"].GetWorldVector((1, 0))
-            lateral_velocity0 = wheel_sideways_direction0.dot(controller.program_state["bodies"]["wheel0"].linearVelocity)
-
-            wheel_sideways_direction1 = controller.program_state["bodies"]["wheel1"].GetWorldVector((1, 0))
-            lateral_velocity1 = wheel_sideways_direction1.dot(controller.program_state["bodies"]["wheel1"].linearVelocity)
+            wheel_sideways_direction = controller.program_state["bodies"]["wheel0"].GetWorldVector((1, 0))
+            lateral_velocity = wheel_sideways_direction.dot(controller.program_state["bodies"]["wheel0"].linearVelocity)
 
             # update friction
-            impulse = controllable.mass * -lateral_velocity0 * wheel_sideways_direction0
-            impulse += controllable.mass * -lateral_velocity1 * wheel_sideways_direction1
-            controllable.ApplyLinearImpulse(impulse, controllable.worldCenter, True)
+            impulse = controller.program_state["bodies"]["chassis"].mass * -lateral_velocity * wheel_sideways_direction
+            controller.program_state["bodies"]["chassis"].ApplyLinearImpulse(impulse, controller.program_state["bodies"]["chassis"].worldCenter, True)
 
             if controller.is_key_pressed(pyglet.window.key.W):
                 RW1.ApplyForceToCenter((forward_RW1[0]*10, forward_RW1[2]*10), True)
@@ -478,12 +473,15 @@ if __name__ == "__main__":
                 FW2.ApplyForceToCenter((-forward_FW2[0]*5, -forward_FW2[2]*5), True)
 
             if controller.is_key_pressed(pyglet.window.key.D):
+                #controllable.angularVelocity = 1
+                print(FW1.angle, FW2.angle)
                 FW1.ApplyTorque(1.0, True)
                 FW2.ApplyTorque(1.0, True)
                 FW1.ApplyForceToCenter((0.9065, 0), True)
                 FW2.ApplyForceToCenter((0.9065, 0), True)
 
             if controller.is_key_pressed(pyglet.window.key.A):
+                #controllable.angularVelocity = -1
                 FW1.ApplyTorque(-1.0, True)
                 FW2.ApplyTorque(-1.0, True)
                 FW1.ApplyForceToCenter((-0.9065, 0), True)
