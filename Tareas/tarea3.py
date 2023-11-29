@@ -87,6 +87,7 @@ if __name__ == "__main__":
     RB6 = mesh_from_file(get_path("Tareas/RB6.stl"))[0]["mesh"]
     RB6_FW = mesh_from_file(get_path("Tareas/RB6_front_wheel.stl"))[0]["mesh"]
     RB6_RW = mesh_from_file(get_path("Tareas/RB6_rear_wheel.stl"))[0]["mesh"]
+    box = Model(shapes.Cube["position"], shapes.Cube["uv"], shapes.Cube["normal"], index_data=shapes.Cube["indices"])
 
     graph = SceneGraph(controller)
     graph.add_node("sun",
@@ -277,7 +278,8 @@ if __name__ == "__main__":
     controller.program_state["world"] = world
 
     chassis = world.CreateDynamicBody(position=(0, 0), angle=0, linearDamping=0.75, angularDamping=0.5)
-    chassis.CreatePolygonFixture(box=(0.2, 1.2), density=8, friction=0.3)
+    chassis_box = (0.2, 1.2)
+    chassis.CreatePolygonFixture(box=chassis_box, density=8, friction=0.3)
     controller.program_state["bodies"]["chassis"] = chassis
 
     # 4 wheels
@@ -289,18 +291,13 @@ if __name__ == "__main__":
                  (-0.5, -1.0)
                 ]
     
+    wheel_box = (0.2, 0.3)
+
     for i in range(4):
         wheel = world.CreateDynamicBody(position=wheel_pos[i], angle=0, linearDamping=0.5, angularDamping=10.5)
-        wheel.CreatePolygonFixture(box=(0.2, 0.3), density=1, friction=30)
+        wheel.CreatePolygonFixture(box=wheel_box, density=1, friction=30)
         controller.program_state["bodies"][f"wheel{i}"] = wheel
         wheels.append(wheel)
-    
-    # [0.4, 0.3, 0.9], [-0.4, 0.3, 0.9], [0.4, 0.3, -1], [-0.4, 0.3, -1]
-
-    wheel_anchors = [(0.5, 0.7), 
-                     (-0.5, 0.9),
-                     (1.0, -0.5),
-                     (-1.0, -0.5)]
 
     world.CreateWheelJoint(bodyA=chassis, bodyB=wheels[0],              # FW1
                            anchor=wheel_pos[0], collideConnected=True,
@@ -323,20 +320,18 @@ if __name__ == "__main__":
 
     @controller.event
     def on_key_press(symbol, modifiers):
-
         global target_pos, tween, selected_car
         global follow_distance, follow_height, follow_pitch
 
         # Switch car
-        if symbol == pyglet.window.key.SPACE:
-            
+        if symbol == pyglet.window.key.SPACE and not selected_car:
             # Animation
             target_pos = (cars["position"][0] - 6) % (-6 * n)
             if target_pos == -0:
                 target_pos = 0             
         
         # Select car
-        elif symbol == pyglet.window.key.ENTER:
+        elif symbol == pyglet.window.key.ENTER and not selected_car:
 
             i = int(np.absolute(cars["position"][0] // 6))
             selected_car = f"RB6_{i}"
@@ -350,6 +345,7 @@ if __name__ == "__main__":
                                 scale=[1.5, 1.5, 1.5],
                                 material = Material(diffuse=colors[i], shininess=shininess[i]),
                                 )
+            
             play_graph.add_node(f"RB6_{i}_FW1", 
                                 attach_to="root",
                                 mesh= RB6_FW,
@@ -359,6 +355,7 @@ if __name__ == "__main__":
                                 scale=[0.4, 0.4, 0.4],
                                 material = wheel_mat,
                                 )
+            
             play_graph.add_node(f"RB6_{i}_FW2")
             play_graph.add_node("visual_RB6_FW2",
                                 mesh= RB6_FW,
@@ -369,6 +366,7 @@ if __name__ == "__main__":
                                 scale=[0.4, 0.4, 0.4],
                                 material = wheel_mat,
                                 )
+            
             play_graph.add_node(f"RB6_{i}_RW1",
                                 mesh= RB6_RW,
                                 pipeline = color_mesh_lit_pipeline2,
@@ -376,6 +374,7 @@ if __name__ == "__main__":
                                 scale=[0.45, 0.4, 0.4],
                                 material = wheel_mat,
                                 )
+            
             play_graph.add_node(f"RB6_{i}_RW2")
             play_graph.add_node("visual_RB6_RW2",
                                 attach_to=f"RB6_{i}_RW2",
@@ -386,6 +385,7 @@ if __name__ == "__main__":
                                 scale=[0.45, 0.4, 0.4],
                                 material = wheel_mat,
                                 )
+            
             
             controller.program_state["camera"] = FreeCamera([0, 0, 0], "perspective")
             controller.program_state["camera"].yaw = np.pi/3
@@ -401,6 +401,62 @@ if __name__ == "__main__":
             follow_distance = 2
             follow_height = 10
             follow_pitch = -np.pi/4
+
+        # Show collision boxes ("FUNCIONALIDAD EXTRA")
+        elif symbol == pyglet.window.key.B and selected_car:
+            if "RB6_box" in play_graph:
+                play_graph.remove_node("RB6_box")
+                play_graph.remove_node("FW1_box")
+                play_graph.remove_node("FW2_box")
+                play_graph.remove_node("RW1_box")
+                play_graph.remove_node("RW2_box")
+            else:       
+                i = int(np.absolute(cars["position"][0] // 6))
+                play_graph.add_node("RB6_box",
+                                    attach_to=selected_car,
+                                    mesh=box,
+                                    pipeline=textured_mesh_lit_pipeline2,
+                                    position=[0, 0.5, 0],
+                                    rotation=[-np.pi/2, 0, 0],
+                                    scale=[chassis_box[0]*(2+1.0), chassis_box[1]*(2+1.0), 2],
+                                    material = Material(diffuse=[0, 1, 0], shininess=64),
+                                    )
+                play_graph.add_node("FW1_box",
+                                    attach_to=f"RB6_{i}_FW1",
+                                    mesh=box,
+                                    pipeline=textured_mesh_lit_pipeline2,
+                                    position=[0, 0.5, 0],
+                                    rotation=[-np.pi/2, 0, 0],
+                                    scale=[wheel_box[0]*(2+1.0), wheel_box[1]*(2+1.0), 2],
+                                    material = Material(diffuse=[0, 1, 0], shininess=64),
+                                    )
+                play_graph.add_node("FW2_box",
+                                    attach_to="visual_RB6_FW2",
+                                    mesh=box,
+                                    pipeline=textured_mesh_lit_pipeline2,
+                                    position=[0, 0.5, 0],
+                                    rotation=[-np.pi/2, 0, 0],
+                                    scale=[wheel_box[0]*(2+1.0), wheel_box[1]*(2+1.0), 2],
+                                    material = Material(diffuse=[0, 1, 0], shininess=64),
+                                    )
+                play_graph.add_node("RW1_box",
+                                    attach_to=f"RB6_{i}_RW1",
+                                    mesh=box,
+                                    pipeline=textured_mesh_lit_pipeline2,
+                                    position=[0, 0.5, 0],
+                                    rotation=[-np.pi/2, 0, 0],
+                                    scale=[wheel_box[0]*(2+1.0), wheel_box[1]*(2+1.0), 2],
+                                    material = Material(diffuse=[0, 1, 0], shininess=64),
+                                    )
+                play_graph.add_node("RW2_box",
+                                    attach_to="visual_RB6_RW2",
+                                    mesh=box,
+                                    pipeline=textured_mesh_lit_pipeline2,
+                                    position=[0, 0.5, 0],
+                                    rotation=[-np.pi/2, 0, 0],
+                                    scale=[wheel_box[0]*(2+1.0), wheel_box[1]*(2+1.0), 2],
+                                    material = Material(diffuse=[0, 1, 0], shininess=64),
+                                    )
     
     def update_world(dt):
         controller.program_state["total_time"] += dt
@@ -444,7 +500,7 @@ if __name__ == "__main__":
                 tween = 0
 
         if selected_car is None:
-            camera.phi += dt/2            
+            camera.phi += dt/2
         
         elif selected_car is not None:
             update_world(dt)
